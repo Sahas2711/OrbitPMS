@@ -1,0 +1,29 @@
+<div>
+	<table cellspacing="0" rules="all" border="1" style="border-collapse:collapse;">
+		<tr>
+			<th scope="col">REGNO</th><th scope="col">SESSION</th><th scope="col">SEMESTERNO</th><th scope="col">COURSENO</th><th scope="col">CCODE</th><th scope="col">COURSE_NAME</th><th scope="col">IA MARKS</th><th scope="col">MSE MARKS</th><th scope="col">CA MARKS</th><th scope="col">END SEM ACTUAL</th><th scope="col">INTERNAL ASSESSMENT CONVERTED</th><th scope="col">MID SEMESTER EXAMINATION CONVERTED</th><th scope="col">CONTINOUS ASSESMENT CONVERTED</th><th scope="col">END SEM CONVERTED</th><th scope="col">GRACE_MARK</th><th scope="col">MARK_TOTAL</th><th scope="col">MARK_COURSE_TOTAL</th><th scope="col">GRADE</th><th scope="col">MARK_OBTAINED_TOTAL</th><th scope="col">MARK_TOTAL_SEMESTER</th>
+		</tr><tr>
+			<td>202301040048</td><td>MAY 2026</td><td>6</td><td>2654</td><td>2312332T</td><td>PREDICTIVE ANALYTICS</td><td>13.00</td><td>15.50</td><td>-</td><td>33.00</td><td>13.00</td><td>16.00</td><td>-</td><td>33.00</td><td>0.00</td><td>62</td><td>75.00</td><td>A+</td><td>628.00</td><td>800</td>
+		</tr><tr>
+			<td>202301040048</td><td>MAY 2026</td><td>6</td><td>2655</td><td>2312332L</td><td>PREDICTIVE ANALYTICS LAB</td><td>-</td><td>-</td><td>17.00</td><td>26.00</td><td>-</td><td>-</td><td>17.00</td><td>26.00</td><td>0.00</td><td>43</td><td>50.00</td><td>A+</td><td>628.00</td><td>800</td>
+		</tr><tr>
+			<td>202301040048</td><td>MAY 2026</td><td>6</td><td>3295</td><td>2304313T</td><td>SOFTWARE ENGINEERING</td><td>24.00</td><td>13.00</td><td>-</td><td>37.00</td><td>24.00</td><td>13.00</td><td>-</td><td>37.00</td><td>0.00</td><td>74</td><td>100.00</td><td>A</td><td>628.00</td><td>800</td>
+		</tr><tr>
+			<td>202301040048</td><td>MAY 2026</td><td>6</td><td>3296</td><td>2304313L</td><td>SOFTWARE ENGINEERING LAB</td><td>-</td><td>-</td><td>16.00</td><td>23.00</td><td>-</td><td>-</td><td>16.00</td><td>23.00</td><td>0.00</td><td>39</td><td>50.00</td><td>A</td><td>628.00</td><td>800</td>
+		</tr><tr>
+			<td>202301040048</td><td>MAY 2026</td><td>6</td><td>3297</td><td>2304314T</td><td>DESIGN &amp; ANANLYSIS OF ALGORITHMS</td><td>24.00</td><td>19.00</td><td>-</td><td>35.00</td><td>24.00</td><td>19.00</td><td>-</td><td>35.00</td><td>0.00</td><td>78</td><td>100.00</td><td>A</td><td>628.00</td><td>800</td>
+		</tr><tr>
+			<td>202301040048</td><td>MAY 2026</td><td>6</td><td>3298</td><td>2304314L</td><td>DESIGN &amp; ANANLYSIS OF ALGORITHMS LAB</td><td>-</td><td>-</td><td>14.00</td><td>21.00</td><td>-</td><td>-</td><td>14.00</td><td>21.00</td><td>0.00</td><td>35</td><td>50.00</td><td>A</td><td>628.00</td><td>800</td>
+		</tr><tr>
+			<td>202301040048</td><td>MAY 2026</td><td>6</td><td>3301</td><td>2304328T</td><td>CLOUD NATIVE APPLICATION DEVELOPMENT</td><td>25.00</td><td>15.00</td><td>-</td><td>35.00</td><td>25.00</td><td>15.00</td><td>-</td><td>35.00</td><td>0.00</td><td>75</td><td>100.00</td><td>A</td><td>628.00</td><td>800</td>
+		</tr><tr>
+			<td>202301040048</td><td>MAY 2026</td><td>6</td><td>3305</td><td>2304328L</td><td>CLOUD NATIVE APPLICATION DEVELOPMENT LAB</td><td>-</td><td>-</td><td>19.00</td><td>26.00</td><td>-</td><td>-</td><td>19.00</td><td>26.00</td><td>0.00</td><td>45</td><td>50.00</td><td>O</td><td>628.00</td><td>800</td>
+		</tr><tr>
+			<td>202301040048</td><td>MAY 2026</td><td>6</td><td>3307</td><td>2304366L</td><td>LINUX ADMINISTRATION-II</td><td>-</td><td>-</td><td>29.00</td><td>31.00</td><td>-</td><td>-</td><td>29.00</td><td>31.00</td><td>0.00</td><td>60</td><td>75.00</td><td>A+</td><td>628.00</td><td>800</td>
+		</tr><tr>
+			<td>202301040048</td><td>MAY 2026</td><td>6</td><td>3312</td><td>2301371L</td><td>EMPLOYABILITY AND CAREER DEVELOPMENT</td><td>-</td><td>-</td><td>24.00</td><td>27.00</td><td>-</td><td>-</td><td>24.00</td><td>27.00</td><td>0.00</td><td>51</td><td>75.00</td><td>B+</td><td>628.00</td><td>800</td>
+		</tr><tr>
+			<td>202301040048</td><td>MAY 2026</td><td>6</td><td>3313</td><td>2304392L</td><td>MAJOR PROJECT-II</td><td>-</td><td>-</td><td>34.00</td><td>32.00</td><td>-</td><td>-</td><td>34.00</td><td>32.00</td><td>0.00</td><td>66</td><td>75.00</td><td>A+</td><td>628.00</td><td>800</td>
+		</tr>
+	</table>
+</div>
