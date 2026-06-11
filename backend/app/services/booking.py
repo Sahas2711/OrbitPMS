@@ -347,12 +347,20 @@ class BookingService:
     @staticmethod
     def _to_response(booking) -> BookingResponse:
         """Map a Booking ORM instance to a BookingResponse DTO."""
+        room_number = None
+        room_type = None
+        if booking.room is not None:
+            room_number = booking.room.room_number
+            room_type = booking.room.room_type
+
         return BookingResponse(
             id=booking.id,
             guest_name=booking.guest_name,
             guest_email=booking.guest_email,
             guest_phone=booking.guest_phone,
             room_id=booking.room_id,
+            room_number=room_number,
+            room_type=room_type,
             check_in_date=booking.check_in_date,
             check_out_date=booking.check_out_date,
             booking_status=booking.booking_status,
