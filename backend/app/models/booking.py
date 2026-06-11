@@ -33,6 +33,12 @@ class Booking(Base, TimestampMixin):
             "check_out_date > check_in_date",
             name="ck_booking_dates_valid",
         ),
+        # EXCLUDE constraint enforced at the database level via migration
+        # f7a8b9c0d1e2. Uses GiST index on (room_id, daterange) to prevent
+        # overlapping bookings. Partial: excludes cancelled/checked_out bookings.
+        #
+        # SQLAlchemy does not natively support EXCLUDE constraints in
+        # __table_args__, so it is managed exclusively in the Alembic migration.
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

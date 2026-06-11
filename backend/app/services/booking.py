@@ -11,9 +11,10 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import RoomStatus
+from app.core.enums import BookingStatus, RoomStatus
 from app.models.user import User
 from app.repositories.booking import BookingRepository
 from app.repositories.room import RoomRepository
@@ -26,6 +27,7 @@ class BookingService:
     """Service layer for booking operations."""
 
     def __init__(self, session: AsyncSession) -> None:
+        self._session = session
         self._repo = BookingRepository(session)
         self._room_repo = RoomRepository(session)
 
@@ -130,16 +132,27 @@ class BookingService:
             total_amount = room.price_per_night * nights
 
         # 3. Create the booking with pre-calculated total
-        booking = await self._repo.create(
-            guest_name=request.guest_name,
-            guest_email=request.guest_email,
-            guest_phone=request.guest_phone,
-            room_id=request.room_id,
-            check_in_date=request.check_in_date,
-            check_out_date=request.check_out_date,
-            created_by=actor.id if actor else None,
-            total_amount=total_amount,
-        )
+        #    IntegrityError is caught as a safety net for race conditions
+        #    where two concurrent requests pass the application-level check
+        #    but conflict at the database exclusion constraint level.
+        try:
+            booking = await self._repo.create(
+                guest_name=request.guest_name,
+                guest_email=request.guest_email,
+                guest_phone=request.guest_phone,
+                room_id=request.room_id,
+                check_in_date=request.check_in_date,
+                check_out_date=request.check_out_date,
+                created_by=actor.id if actor else None,
+                total_amount=total_amount,
+            )
+        except IntegrityError:
+            await self._session.rollback()
+            room_number = room.room_number if room else str(request.room_id)
+            raise ValueError(
+                f"Room '{room_number}' is already booked "
+                f"during the requested dates."
+            )
 
         self._audit_log(
             "booking.create",
@@ -253,15 +266,25 @@ class BookingService:
             )
 
         # 3. Update the booking
-        booking = await self._repo.update(
-            booking_id=booking_id,
-            guest_name=request.guest_name,
-            guest_email=request.guest_email,
-            guest_phone=request.guest_phone,
-            check_in_date=request.check_in_date,
-            check_out_date=request.check_out_date,
-            booking_status=request.booking_status,
-        )
+        #    IntegrityError caught as safety net for race conditions
+        try:
+            booking = await self._repo.update(
+                booking_id=booking_id,
+                guest_name=request.guest_name,
+                guest_email=request.guest_email,
+                guest_phone=request.guest_phone,
+                check_in_date=request.check_in_date,
+                check_out_date=request.check_out_date,
+                booking_status=request.booking_status,
+            )
+        except IntegrityError:
+            await self._session.rollback()
+            room = await self._room_repo.get_by_id(existing.room_id)
+            room_number = room.room_number if room else str(existing.room_id)
+            raise ValueError(
+                f"Room '{room_number}' is already booked "
+                f"during the requested dates."
+            )
 
         assert booking is not None
 
@@ -270,7 +293,7 @@ class BookingService:
             await self._recalculate_total(booking)
 
         # 5. If status changed to cancelled, release room availability
-        if request.booking_status == "cancelled":
+        if request.booking_status == BookingStatus.CANCELLED:
             logger.info(
                 "Booking cancelled: id=%s room=%s",
                 booking_id,
