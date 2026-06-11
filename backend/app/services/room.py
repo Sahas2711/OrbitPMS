@@ -11,7 +11,13 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.room import RoomRepository
-from app.schemas.room import RoomCreate, RoomResponse, RoomUpdate
+from app.schemas.room import (
+    RoomCreate,
+    RoomResponse,
+    RoomStatusChange,
+    RoomUpdate,
+    validate_status_transition,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +144,11 @@ class RoomService:
                     "already exists."
                 )
 
-        # 3. Update the room
+        # 3. Validate status transition if status is changing
+        if request.status is not None:
+            validate_status_transition(existing.status, request.status)
+
+        # 4. Update the room
         room = await self._repo.update(
             room_id=room_id,
             room_number=request.room_number,
@@ -174,6 +184,53 @@ class RoomService:
         await self._repo.delete(room_id)
 
         logger.info("Room deleted: id=%s number=%s", room_id, room.room_number)
+
+    async def change_room_status(
+        self,
+        room_id: uuid.UUID,
+        request: RoomStatusChange,
+    ) -> RoomResponse:
+        """Change a room's availability status.
+
+        Validates the transition against the allowed state machine:
+            Available  →  Occupied, Maintenance
+            Occupied   →  Available
+            Maintenance →  Available
+
+        Args:
+            room_id: The UUID of the room.
+            request: The desired new status.
+
+        Returns:
+            A RoomResponse with the updated room.
+
+        Raises:
+            ValueError: If the room does not exist or the transition
+                is not allowed.
+        """
+        # 1. Verify room exists
+        existing = await self._repo.get_by_id(room_id)
+        if existing is None:
+            raise ValueError(f"Room with id '{room_id}' not found.")
+
+        # 2. Validate the transition
+        validate_status_transition(existing.status, request.status)
+
+        # 3. Apply the new status
+        room = await self._repo.update(
+            room_id=room_id,
+            status=request.status,
+        )
+        assert room is not None
+
+        logger.info(
+            "Room status changed: id=%s number=%s %s → %s",
+            room_id,
+            room.room_number,
+            existing.status.value,
+            room.status.value,
+        )
+        return self._to_response(room)
 
     # ── Helpers ─────────────────────────────────────────────────
 

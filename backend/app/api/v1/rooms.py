@@ -13,7 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import get_session
 from app.schemas.error import ErrorDetail, ErrorResponse
-from app.schemas.room import RoomCreate, RoomResponse, RoomUpdate
+from app.schemas.room import (
+    RoomCreate,
+    RoomResponse,
+    RoomStatusChange,
+    RoomUpdate,
+)
 from app.services.room import RoomService
 
 logger = logging.getLogger(__name__)
@@ -245,3 +250,57 @@ async def delete_room(
         )
 
     logger.info("Room deleted: id=%s", room_id)
+
+
+@router.patch(
+    "/{room_id}/status",
+    response_model=RoomResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Change room status",
+    description=(
+        "Transition a room to a new status. Valid transitions:\n\n"
+        "- **Available** → Occupied, Maintenance\n"
+        "- **Occupied** → Available\n"
+        "- **Maintenance** → Available\n\n"
+        "Invalid transitions return 422."
+    ),
+    responses={
+        200: {"description": "Status updated successfully"},
+        404: {"model": ErrorResponse, "description": "Room not found"},
+        422: {
+            "model": ErrorResponse,
+            "description": "Invalid status transition",
+        },
+    },
+)
+async def change_room_status(
+    room_id: uuid.UUID,
+    request: RoomStatusChange,
+    db: AsyncSession = Depends(get_session),
+) -> RoomResponse:
+    """Change a room's availability status.
+
+    Uses the status transition state machine to validate the change.
+    """
+    service = RoomService(session=db)
+
+    try:
+        return await service.change_room_status(room_id, request)
+    except ValueError as exc:
+        message = str(exc)
+
+        if "not found" in message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ErrorDetail(
+                    field="room_id",
+                    message=message,
+                ).model_dump(),
+            )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=ErrorDetail(
+                field="status",
+                message=message,
+            ).model_dump(),
+        )

@@ -158,6 +158,62 @@ class RoomUpdate(BaseModel):
 
 
 # ═══════════════════════════════════════════════════════════════
+# ── Status Transition Schemas
+# ═══════════════════════════════════════════════════════════════
+
+
+# ── Valid status transitions ───────────────────────────────────
+#   Available  →  Occupied, Maintenance
+#   Occupied   →  Available
+#   Maintenance →  Available
+
+VALID_STATUS_TRANSITIONS: dict[RoomStatus, set[RoomStatus]] = {
+    RoomStatus.AVAILABLE: {RoomStatus.OCCUPIED, RoomStatus.MAINTENANCE},
+    RoomStatus.OCCUPIED: {RoomStatus.AVAILABLE},
+    RoomStatus.MAINTENANCE: {RoomStatus.AVAILABLE},
+}
+
+
+def validate_status_transition(
+    current_status: RoomStatus,
+    new_status: RoomStatus,
+) -> None:
+    """Validate a room status transition.
+
+    Args:
+        current_status: The current room status.
+        new_status: The desired new room status.
+
+    Raises:
+        ValueError: If the transition is not allowed.
+    """
+    if current_status == new_status:
+        raise ValueError(
+            f"Room is already '{new_status.value}'. "
+            f"No status change needed."
+        )
+
+    allowed = VALID_STATUS_TRANSITIONS.get(current_status)
+    if allowed is None or new_status not in allowed:
+        raise ValueError(
+            f"Invalid status transition: "
+            f"'{current_status.value}' → '{new_status.value}'. "
+            f"Allowed transitions from '{current_status.value}': "
+            f"{', '.join(sorted(s.value for s in (allowed or set())))}."
+        )
+
+
+class RoomStatusChange(BaseModel):
+    """Request schema for changing a room's status."""
+
+    status: RoomStatus = Field(
+        ...,
+        description="New room status",
+        examples=["occupied", "available", "maintenance"],
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
 # ── Response Schemas
 # ═══════════════════════════════════════════════════════════════
 
