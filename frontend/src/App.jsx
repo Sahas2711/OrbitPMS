@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import RoomManagement from './pages/RoomManagement';
 import BookingManagement from './pages/BookingManagement';
 import PendingArrivals from './pages/PendingArrivals';
+import CheckOut from './pages/CheckOut';
 
 function App() {
   return (
@@ -79,6 +80,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <PendingArrivals />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Check Out */}
+          <Route
+            path="/checkout"
+            element={
+              <ProtectedRoute>
+                <CheckOut />
               </ProtectedRoute>
             }
           />
