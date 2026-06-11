@@ -2,28 +2,32 @@
 OrbitPMS - Hotel Property Management System API.
 
 FastAPI application entry point with database dependency injection,
-health checks, and middleware configuration.
+health checks, and route registration.
 """
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.auth import router as auth_router
 from app.database.session import engine, get_session
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan handler.
-
-    Manages startup and shutdown events.
-    Currently handles database engine disposal on shutdown.
-    """
-    # Startup
+    """Application lifespan handler."""
+    logger.info("OrbitPMS starting up...")
     yield
-    # Shutdown
+    logger.info("OrbitPMS shutting down...")
     await engine.dispose()
 
 
@@ -34,6 +38,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── Route Registration ──────────────────────────────────────────
+
+app.include_router(auth_router)
 
 # ── Health Check ────────────────────────────────────────────────
 

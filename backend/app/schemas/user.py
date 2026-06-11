@@ -19,6 +19,28 @@ from pydantic import (
 from app.core.enums import UserRole
 
 
+# ═══════════════════════════════════════════════════════════════
+# ── Request Schemas
+# ═══════════════════════════════════════════════════════════════
+
+
+class LoginRequest(BaseModel):
+    """Request schema for user login."""
+
+    email: EmailStr = Field(
+        ...,
+        description="Registered email address",
+        examples=["john.doe@example.com"],
+    )
+    password: str = Field(
+        ...,
+        min_length=8,
+        max_length=128,
+        description="Account password",
+        examples=["SecureP@ss1"],
+    )
+
+
 class RegisterRequest(BaseModel):
     """Request schema for user registration.
 
@@ -95,6 +117,11 @@ class RegisterRequest(BaseModel):
         return self
 
 
+# ═══════════════════════════════════════════════════════════════
+# ── Response Schemas
+# ═══════════════════════════════════════════════════════════════
+
+
 class RegisterResponse(BaseModel):
     """Response schema returned after successful registration.
 
@@ -141,7 +168,79 @@ class RegisterResponse(BaseModel):
     }
 
 
-# ── Duplicate Email Validation ─────────────────────────────────
+class TokenResponse(BaseModel):
+    """JWT token payload returned after successful authentication."""
+
+    access_token: str = Field(
+        ...,
+        description="JWT access token (short-lived)",
+    )
+    refresh_token: str = Field(
+        ...,
+        description="JWT refresh token (long-lived)",
+    )
+    token_type: str = Field(
+        default="bearer",
+        description="Token type for Authorization header",
+    )
+    expires_in: int = Field(
+        ...,
+        description="Access token TTL in seconds",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "access_token": "eyJhbGciOi...",
+                "refresh_token": "eyJhbGciOi...",
+                "token_type": "bearer",
+                "expires_in": 1800,
+            }
+        },
+    }
+
+
+class LoginResponse(BaseModel):
+    """Response schema returned after successful login.
+
+    Combines the authenticated user profile with JWT tokens
+    so the client has everything needed in one response.
+    """
+
+    user: RegisterResponse = Field(
+        ...,
+        description="Authenticated user profile",
+    )
+    tokens: TokenResponse = Field(
+        ...,
+        description="JWT access and refresh tokens",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "user": {
+                    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                    "full_name": "John Doe",
+                    "email": "john.doe@example.com",
+                    "role": "staff",
+                    "is_active": True,
+                    "created_at": "2026-06-10T12:00:00Z",
+                },
+                "tokens": {
+                    "access_token": "eyJhbGciOi...",
+                    "refresh_token": "eyJhbGciOi...",
+                    "token_type": "bearer",
+                    "expires_in": 1800,
+                },
+            }
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# ── Duplicate Email Validation
+# ═══════════════════════════════════════════════════════════════
 
 
 async def validate_unique_email(
