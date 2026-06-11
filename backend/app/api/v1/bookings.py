@@ -333,3 +333,65 @@ async def delete_booking(
         )
 
     logger.info("Booking deleted: id=%s", booking_id)
+
+
+@router.post(
+    "/{booking_id}/check-in",
+    response_model=BookingResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Check in a guest",
+    description=(
+        "Check a guest into their room. The booking must be in "
+        "'confirmed' status and the check-in date must be today "
+        "or earlier. Atomically updates the booking status to "
+        "'checked_in' and the room status to 'occupied'."
+    ),
+    responses={
+        200: {"description": "Guest checked in successfully"},
+        404: {"model": ErrorResponse, "description": "Booking not found"},
+        409: {
+            "model": ErrorResponse,
+            "description": "Booking not in confirmed status or check-in date in the future",
+        },
+        422: {"model": ErrorResponse, "description": "Invalid UUID format"},
+    },
+)
+async def check_in_booking(
+    booking_id: uuid.UUID,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = StaffCanMutate,
+) -> BookingResponse:
+    """Check a guest into their room.
+
+    Validates the booking is in 'confirmed' status and the check-in
+    date has arrived. Then atomically:
+    - Sets booking status to 'checked_in'
+    - Sets room status to 'occupied'
+
+    Both changes are part of a single database transaction.
+    """
+    service = BookingService(session=db)
+
+    try:
+        return await service.check_in(
+            booking_id,
+            actor=current_user,
+        )
+    except ValueError as exc:
+        message = str(exc)
+
+        if "not found" in message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ErrorDetail(
+                    field="booking_id",
+                    message=message,
+                ).model_dump(),
+            )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=ErrorDetail(
+                field="booking_id",
+                message=message,
+            ).model_dump(),
+        )
