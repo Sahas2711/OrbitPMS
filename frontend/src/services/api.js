@@ -125,4 +125,38 @@ export async function getCurrentUserProfile() {
   return response.data;
 }
 
+// ── Room API Functions ──────────────────────────────────────────
+
+export async function getRooms(params = {}) {
+  const query = new URLSearchParams();
+  if (params.status) query.set('status', params.status);
+  if (params.room_type) query.set('room_type', params.room_type);
+  if (params.skip) query.set('skip', params.skip);
+  if (params.limit) query.set('limit', params.limit);
+
+  const qs = query.toString();
+  const response = await api.get(`/api/v1/rooms${qs ? `?${qs}` : ''}`);
+  return response.data;
+}
+
+export async function getRoom(roomId) {
+  const response = await api.get(`/api/v1/rooms/${roomId}`);
+  return response.data;
+}
+
+export async function createRoom(data) {
+  const response = await api.post('/api/v1/rooms', data);
+  return response.data;
+}
+
+export async function updateRoom(roomId, data) {
+  const response = await api.put(`/api/v1/rooms/${roomId}`, data);
+  return response.data;
+}
+
+export async function deleteRoom(roomId) {
+  const response = await api.delete(`/api/v1/rooms/${roomId}`);
+  return response.data;
+}
+
 export default api;

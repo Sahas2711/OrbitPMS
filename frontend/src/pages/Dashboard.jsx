@@ -1,8 +1,14 @@
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
-import { HiOutlineBuildingOffice2, HiOutlineArrowRightOnRectangle } from 'react-icons/hi2';
+import {
+  HiOutlineBuildingOffice2,
+  HiOutlineArrowRightOnRectangle,
+  HiOutlineSquares2X2,
+} from 'react-icons/hi2';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   const getInitials = (name) => {
@@ -57,7 +63,7 @@ export default function Dashboard() {
             Dashboard
           </h2>
           <p className="text-body text-text-secondary mt-1">
-            Welcome to OrbitPMS. Select a module from the sidebar to get started.
+            Welcome to OrbitPMS. Select a module below to get started.
           </p>
         </div>
 
@@ -79,6 +85,29 @@ export default function Dashboard() {
               </p>
             </div>
           ))}
+        </div>
+
+        {/* Module Navigation */}
+        <div className="mb-8">
+          <h3 className="text-card-title font-semibold text-text-primary mb-4">
+            Modules
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <button
+              onClick={() => navigate('/rooms')}
+              className="bg-bg-card rounded-card shadow-card border border-border p-5 text-left transition-all duration-150 hover:shadow-hover hover:-translate-y-0.5 group cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-lg bg-brand-light flex items-center justify-center mb-3 group-hover:bg-brand group-hover:text-white transition-all">
+                <HiOutlineSquares2X2 className="w-5 h-5 text-brand group-hover:text-white transition-colors" />
+              </div>
+              <h4 className="text-body font-semibold text-text-primary m-0">
+                Room Management
+              </h4>
+              <p className="text-small text-text-muted mt-1 m-0">
+                Manage hotel rooms, availability, and pricing
+              </p>
+            </button>
+          </div>
         </div>
 
         {/* Role Info */}
