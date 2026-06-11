@@ -7,13 +7,13 @@ import {
   HiOutlinePencilSquare,
   HiOutlineTrash,
   HiOutlineBuildingOffice2,
-  HiOutlineXMark,
 } from 'react-icons/hi2';
 
 import Button from '../components/Button';
-import Input from '../components/Input';
 import Table from '../components/Table';
 import StatusBadge from '../components/StatusBadge';
+import RoomFormModal from '../components/RoomFormModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { getRooms, createRoom, updateRoom, deleteRoom } from '../services/api';
 
 const ROOM_TYPES = [
@@ -30,23 +30,20 @@ const STATUS_FILTERS = [
   { value: 'maintenance', label: 'Maintenance' },
 ];
 
-const emptyForm = {
-  room_number: '',
-  room_type: 'standard',
-  price_per_night: '',
-  description: '',
-};
-
 export default function RoomManagement() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [showForm, setShowForm] = useState(false);
+
+  // Modal state
+  const [formOpen, setFormOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState(null);
-  const [formData, setFormData] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   // ── Fetch rooms ──────────────────────────────────────────────
 
@@ -85,79 +82,58 @@ export default function RoomManagement() {
 
   const openCreateForm = () => {
     setEditingRoom(null);
-    setFormData(emptyForm);
-    setShowForm(true);
+    setFormOpen(true);
   };
 
   const openEditForm = (room) => {
     setEditingRoom(room);
-    setFormData({
-      room_number: room.room_number,
-      room_type: room.room_type,
-      price_per_night: room.price_per_night.toString(),
-      description: room.description || '',
-    });
-    setShowForm(true);
+    setFormOpen(true);
   };
 
   const closeForm = () => {
-    setShowForm(false);
+    setFormOpen(false);
     setEditingRoom(null);
-    setFormData(emptyForm);
   };
 
-  const handleFormChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  const handleSave = async (payload) => {
+    if (editingRoom) {
+      const updated = await updateRoom(editingRoom.id, payload);
+      setRooms((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r))
+      );
+      toast.success('Room updated successfully');
+    } else {
+      const created = await createRoom(payload);
+      setRooms((prev) => [...prev, created]);
+      toast.success('Room created successfully');
+    }
+    closeForm();
   };
 
-  const handleSave = async (e) => {
-    e.preventDefault();
-    setSaving(true);
+  // ── Delete handlers ──────────────────────────────────────────
+
+  const confirmDelete = (room) => {
+    setDeleteTarget(room);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
 
     try {
-      const payload = {
-        room_number: formData.room_number,
-        room_type: formData.room_type,
-        price_per_night: parseFloat(formData.price_per_night),
-        description: formData.description || null,
-      };
-
-      if (editingRoom) {
-        const updated = await updateRoom(editingRoom.id, payload);
-        setRooms((prev) =>
-          prev.map((r) => (r.id === updated.id ? updated : r))
-        );
-        toast.success('Room updated successfully');
-      } else {
-        const created = await createRoom(payload);
-        setRooms((prev) => [...prev, created]);
-        toast.success('Room created successfully');
-      }
-      closeForm();
-    } catch (err) {
-      const detail = err.response?.data?.detail;
-      const message =
-        typeof detail === 'object' && detail?.message
-          ? detail.message
-          : 'Failed to save room';
-      toast.error(message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async (room) => {
-    if (!window.confirm(`Delete room "${room.room_number}"? This action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      await deleteRoom(room.id);
-      setRooms((prev) => prev.filter((r) => r.id !== room.id));
+      await deleteRoom(deleteTarget.id);
+      setRooms((prev) => prev.filter((r) => r.id !== deleteTarget.id));
       toast.success('Room deleted successfully');
+      setDeleteTarget(null);
     } catch (err) {
       toast.error('Failed to delete room');
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const cancelDelete = () => {
+    if (!deleting) setDeleteTarget(null);
   };
 
   // ── Table columns ───────────────────────────────────────────
@@ -231,7 +207,7 @@ export default function RoomManagement() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              handleDelete(row);
+              confirmDelete(row);
             }}
             className="p-1.5 rounded-md text-text-muted hover:text-alert-error hover:bg-red-50 transition-all"
             title="Delete room"
@@ -341,98 +317,30 @@ export default function RoomManagement() {
         />
       </main>
 
-      {/* ── Add/Edit Room Modal ────────────────────────────────── */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-bg-card rounded-modal shadow-modal border border-border overflow-hidden animate-in fade-in zoom-in duration-200">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h3 className="text-card-title font-semibold text-text-primary m-0">
-                {editingRoom ? 'Edit Room' : 'Add New Room'}
-              </h3>
-              <button
-                onClick={closeForm}
-                className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-table-header transition-all"
-              >
-                <HiOutlineXMark className="w-5 h-5" />
-              </button>
-            </div>
+      {/* ── Create/Edit Room Modal ──────────────────────────── */}
+      <RoomFormModal
+        open={formOpen}
+        onClose={closeForm}
+        onSave={handleSave}
+        room={editingRoom}
+      />
 
-            {/* Modal Body */}
-            <form onSubmit={handleSave} className="p-6 space-y-4">
-              {/* Room Number */}
-              <Input
-                label="Room Number"
-                placeholder="e.g. 101, 202A"
-                value={formData.room_number}
-                onChange={(e) => handleFormChange('room_number', e.target.value)}
-                required
-                disabled={saving}
-              />
-
-              {/* Room Type */}
-              <div>
-                <label className="block text-small font-medium text-text-secondary mb-1.5">
-                  Room Type
-                </label>
-                <select
-                  value={formData.room_type}
-                  onChange={(e) => handleFormChange('room_type', e.target.value)}
-                  disabled={saving}
-                  className="w-full h-[44px] px-4 py-2.5 text-body bg-bg-card border border-border rounded-input outline-none transition-all duration-150 focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <option value="standard">Standard</option>
-                  <option value="deluxe">Deluxe</option>
-                  <option value="suite">Suite</option>
-                </select>
-              </div>
-
-              {/* Price */}
-              <Input
-                label="Price per Night ($)"
-                type="number"
-                step="0.01"
-                min="0.01"
-                placeholder="e.g. 150.00"
-                value={formData.price_per_night}
-                onChange={(e) => handleFormChange('price_per_night', e.target.value)}
-                required
-                disabled={saving}
-              />
-
-              {/* Description */}
-              <div>
-                <label className="block text-small font-medium text-text-secondary mb-1.5">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => handleFormChange('description', e.target.value)}
-                  disabled={saving}
-                  rows={3}
-                  placeholder="Optional room description..."
-                  className="w-full px-4 py-2.5 text-body bg-bg-card border border-border rounded-input outline-none transition-all duration-150 focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
-                />
-              </div>
-
-              {/* Modal Footer */}
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={closeForm}
-                  disabled={saving}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" loading={saving}>
-                  {editingRoom ? 'Update Room' : 'Create Room'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* ── Delete Confirmation Dialog ──────────────────────── */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onConfirm={handleDelete}
+        onCancel={cancelDelete}
+        title="Delete Room"
+        message={
+          deleteTarget
+            ? `Are you sure you want to delete room "${deleteTarget.room_number}"? This action cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={deleting}
+      />
     </div>
   );
 }
