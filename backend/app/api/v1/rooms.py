@@ -11,14 +11,26 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import require_role
 from app.database.session import get_session
+from app.models.user import User
 from app.schemas.error import ErrorDetail, ErrorResponse
-from app.schemas.room import RoomCreate, RoomResponse, RoomUpdate
+from app.schemas.room import (
+    RoomCreate,
+    RoomResponse,
+    RoomStatusChange,
+    RoomUpdate,
+)
 from app.services.room import RoomService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/rooms", tags=["rooms"])
+
+# ── Authorization helpers ───────────────────────────────────────
+# Mutation endpoints require admin or receptionist role
+
+StaffCanMutate = Depends(require_role("admin", "receptionist"))
 
 
 @router.get(
@@ -123,6 +135,7 @@ async def get_room(
 async def create_room(
     request: RoomCreate,
     db: AsyncSession = Depends(get_session),
+    current_user: User = StaffCanMutate,
 ) -> RoomResponse:
     """Create a new hotel room.
 
@@ -132,7 +145,7 @@ async def create_room(
     service = RoomService(session=db)
 
     try:
-        response = await service.create_room(request)
+        response = await service.create_room(request, actor=current_user)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -178,6 +191,7 @@ async def update_room(
     room_id: uuid.UUID,
     request: RoomUpdate,
     db: AsyncSession = Depends(get_session),
+    current_user: User = StaffCanMutate,
 ) -> RoomResponse:
     """Update an existing room by its ID.
 
@@ -187,7 +201,7 @@ async def update_room(
     service = RoomService(session=db)
 
     try:
-        response = await service.update_room(room_id, request)
+        response = await service.update_room(room_id, request, actor=current_user)
     except ValueError as exc:
         message = str(exc)
 
@@ -229,12 +243,13 @@ async def update_room(
 async def delete_room(
     room_id: uuid.UUID,
     db: AsyncSession = Depends(get_session),
+    current_user: User = StaffCanMutate,
 ) -> None:
     """Delete a room by its unique identifier."""
     service = RoomService(session=db)
 
     try:
-        await service.delete_room(room_id)
+        await service.delete_room(room_id, actor=current_user)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -245,3 +260,62 @@ async def delete_room(
         )
 
     logger.info("Room deleted: id=%s", room_id)
+
+
+@router.patch(
+    "/{room_id}/status",
+    response_model=RoomResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Change room status",
+    description=(
+        "Transition a room to a new status. Valid transitions:\n\n"
+        "- **Available** → Occupied, Maintenance\n"
+        "- **Occupied** → Available\n"
+        "- **Maintenance** → Available\n\n"
+        "Invalid transitions return 422."
+    ),
+    responses={
+        200: {"description": "Status updated successfully"},
+        404: {"model": ErrorResponse, "description": "Room not found"},
+        422: {
+            "model": ErrorResponse,
+            "description": "Invalid status transition",
+        },
+    },
+)
+async def change_room_status(
+    room_id: uuid.UUID,
+    request: RoomStatusChange,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = StaffCanMutate,
+) -> RoomResponse:
+    """Change a room's availability status.
+
+    Requires admin or receptionist role. Uses the status transition
+    state machine to validate the change. All changes are logged
+    with the acting user's identity for audit purposes.
+    """
+    service = RoomService(session=db)
+
+    try:
+        return await service.change_room_status(
+            room_id, request, actor=current_user
+        )
+    except ValueError as exc:
+        message = str(exc)
+
+        if "not found" in message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ErrorDetail(
+                    field="room_id",
+                    message=message,
+                ).model_dump(),
+            )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=ErrorDetail(
+                field="status",
+                message=message,
+            ).model_dump(),
+        )
