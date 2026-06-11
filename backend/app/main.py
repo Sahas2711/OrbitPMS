@@ -13,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.auth import router as auth_router
+from app.api.v1.bookings import router as bookings_router
 from app.api.v1.rooms import router as rooms_router
 from app.database.session import engine, get_session
 
@@ -48,6 +49,7 @@ app = FastAPI(
 
 app.include_router(auth_router)
 app.include_router(rooms_router)
+app.include_router(bookings_router)
 
 # ── Health Check ────────────────────────────────────────────────
 
