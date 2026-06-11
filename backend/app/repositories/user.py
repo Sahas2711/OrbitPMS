@@ -1,8 +1,9 @@
 """
 User repository for OrbitPMS.
 
-Implements data access layer for the users table using
-SQLAlchemy 2.0 async patterns.
+Provides data access methods for the User model following
+the repository pattern. All database interactions go through
+this layer.
 """
 
 import uuid
@@ -10,26 +11,14 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import UserRole
 from app.models.user import User
 
 
 class UserRepository:
-    """Data access layer for User operations."""
+    """Repository for User database operations."""
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
-
-    async def get_by_id(self, user_id: uuid.UUID) -> User | None:
-        """Fetch a user by their primary key."""
-        return await self._session.get(User, user_id)
-
-    async def get_by_email(self, email: str) -> User | None:
-        """Fetch a user by their email address."""
-        result = await self._session.execute(
-            select(User).where(User.email == email)
-        )
-        return result.scalars().first()
 
     async def create(
         self,
@@ -38,7 +27,17 @@ class UserRepository:
         password_hash: str,
         role: str = "staff",
     ) -> User:
-        """Create a new user record and flush to get the ID."""
+        """Create a new user record.
+
+        Args:
+            full_name: User's display name.
+            email: Unique email address.
+            password_hash: Bcrypt hash of the user's password.
+            role: User role string (default: ``"staff"``).
+
+        Returns:
+            The newly created User ORM instance.
+        """
         user = User(
             full_name=full_name,
             email=email,
@@ -50,4 +49,27 @@ class UserRepository:
         await self._session.refresh(user)
         return user
 
+    async def get_by_email(self, email: str) -> User | None:
+        """Look up a user by email address.
 
+        Args:
+            email: The email to search for.
+
+        Returns:
+            The matching User, or None if not found.
+        """
+        result = await self._session.execute(
+            select(User).where(User.email == email)
+        )
+        return result.scalars().first()
+
+    async def get_by_id(self, user_id: uuid.UUID) -> User | None:
+        """Look up a user by primary key.
+
+        Args:
+            user_id: The UUID of the user.
+
+        Returns:
+            The matching User, or None if not found.
+        """
+        return await self._session.get(User, user_id)

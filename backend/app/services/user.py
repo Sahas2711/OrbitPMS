@@ -29,13 +29,19 @@ logger = logging.getLogger(__name__)
 
 
 class UserService:
-    """Service layer for user operations."""
+    """Service layer for user operations.
+
+    Encapsulates business rules and orchestrates repository calls.
+    """
 
     def __init__(self, session: AsyncSession) -> None:
         self._repo = UserRepository(session)
 
     async def register(self, request: RegisterRequest) -> RegisterResponse:
         """Register a new user.
+
+        Validates uniqueness, hashes the password, persists the
+        record, and returns a safe response DTO.
 
         Args:
             request: Validated registration payload.
@@ -46,13 +52,17 @@ class UserService:
         Raises:
             ValueError: If the email is already taken.
         """
+        # 1. Check for duplicate email
         existing = await self._repo.get_by_email(request.email)
         if existing is not None:
             raise ValueError(
                 f"A user with email '{request.email}' is already registered."
             )
 
+        # 2. Hash the password
         password_hash = get_password_hash(request.password)
+
+        # 3. Create the user record
         user = await self._repo.create(
             full_name=request.full_name,
             email=request.email,
@@ -60,6 +70,7 @@ class UserService:
             role=request.role.value,
         )
 
+        # 4. Map to response DTO
         return RegisterResponse(
             id=user.id,
             full_name=user.full_name,

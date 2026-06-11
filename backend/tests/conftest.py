@@ -32,4 +32,5 @@ def mock_user_repo(mock_session):
         mock_repo.create = AsyncMock()
         mock_repo_cls.return_value = mock_repo
         mock_repo_cls2.return_value = mock_repo
+
         yield mock_repo

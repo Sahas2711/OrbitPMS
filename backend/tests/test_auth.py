@@ -58,7 +58,9 @@ class TestRegister:
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.post("/api/v1/auth/register", json=self.VALID_PAYLOAD)
+            response = await client.post(
+                "/api/v1/auth/register", json=self.VALID_PAYLOAD
+            )
 
         assert response.status_code == 201
         data = response.json()
@@ -78,10 +80,27 @@ class TestRegister:
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.post("/api/v1/auth/register", json=self.VALID_PAYLOAD)
+            response = await client.post(
+                "/api/v1/auth/register", json=self.VALID_PAYLOAD
+            )
 
         assert response.status_code == 409
         assert "already registered" in response.text.lower()
+
+    async def test_register_internal_error(self):
+        """Unexpected database errors should return 500."""
+        self._service_instance.register.side_effect = RuntimeError(
+            "An unexpected error occurred."
+        )
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/auth/register", json=self.VALID_PAYLOAD
+            )
+
+        assert response.status_code == 500
+        assert "unexpected error" in response.text.lower()
 
     async def test_register_validation_error(self):
         """Invalid payload should return 422."""
@@ -145,7 +164,9 @@ class TestLogin:
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.post("/api/v1/auth/login", json=self.VALID_PAYLOAD)
+            response = await client.post(
+                "/api/v1/auth/login", json=self.VALID_PAYLOAD
+            )
 
         assert response.status_code == 200
         data = response.json()
@@ -170,7 +191,9 @@ class TestLogin:
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.post("/api/v1/auth/login", json=self.VALID_PAYLOAD)
+            response = await client.post(
+                "/api/v1/auth/login", json=self.VALID_PAYLOAD
+            )
 
         assert response.status_code == 401
         assert "invalid" in response.text.lower()
@@ -183,7 +206,9 @@ class TestLogin:
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.post("/api/v1/auth/login", json=self.VALID_PAYLOAD)
+            response = await client.post(
+                "/api/v1/auth/login", json=self.VALID_PAYLOAD
+            )
 
         assert response.status_code == 403
         assert "inactive" in response.text.lower()

@@ -24,7 +24,12 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan handler."""
+    """Application lifespan handler.
+
+    Manages startup and shutdown events.
+    Currently handles database engine disposal on shutdown.
+    """
+
     logger.info("OrbitPMS starting up...")
     yield
     logger.info("OrbitPMS shutting down...")

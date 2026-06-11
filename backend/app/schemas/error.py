@@ -20,6 +20,7 @@ class ErrorDetail(BaseModel):
         ...,
         description="Human-readable error description",
         examples=["Invalid credentials."],
+
     )
 
 
@@ -31,5 +32,6 @@ class ErrorResponse(BaseModel):
         description="Error message or field-level error details",
         examples=[
             "Invalid credentials.",
+
         ],
     )
