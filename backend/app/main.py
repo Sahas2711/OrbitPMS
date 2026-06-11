@@ -29,6 +29,7 @@ async def lifespan(app: FastAPI):
     Manages startup and shutdown events.
     Currently handles database engine disposal on shutdown.
     """
+
     logger.info("OrbitPMS starting up...")
     yield
     logger.info("OrbitPMS shutting down...")

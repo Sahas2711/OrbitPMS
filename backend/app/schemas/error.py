@@ -19,7 +19,8 @@ class ErrorDetail(BaseModel):
     message: str = Field(
         ...,
         description="Human-readable error description",
-        examples=["A user with this email is already registered."],
+        examples=["Invalid credentials."],
+
     )
 
 
@@ -30,6 +31,7 @@ class ErrorResponse(BaseModel):
         ...,
         description="Error message or field-level error details",
         examples=[
-            "A user with email 'john@example.com' is already registered."
+            "Invalid credentials.",
+
         ],
     )

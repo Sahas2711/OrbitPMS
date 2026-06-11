@@ -1,21 +1,18 @@
 """
-Integration tests for the POST /api/v1/auth/register endpoint.
+Integration tests for OrbitPMS authentication endpoints.
 
-Uses FastAPI TestClient with mocked database session to
-verify request handling, validation, and exception mapping.
+Tests both /api/v1/auth/register and /api/v1/auth/login using
+mocked UserService to avoid database dependency.
 """
 
 import uuid
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock
-from uuid import UUID
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi import status
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
-from app.core.enums import UserRole
 from app.main import app
+from app.schemas.user import LoginResponse, RegisterResponse, TokenResponse
 
 
 @pytest.fixture
@@ -23,117 +20,207 @@ def anyio_backend():
     return "asyncio"
 
 
-def _fake_user_response(overrides: dict | None = None) -> dict:
-    """Build a fake RegisterResponse dict for mocking."""
-    defaults = {
-        "id": UUID("3fa85f64-5717-4562-b3fc-2c963f66afa6"),
+# ═══════════════════════════════════════════════════════════════
+# ── Register Endpoint Tests
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestRegister:
+    """Tests for POST /api/v1/auth/register."""
+
+    @pytest.fixture(autouse=True)
+    def mock_user_service(self):
+        """Mock UserService to avoid database dependency."""
+        with patch("app.api.v1.auth.UserService") as mock:
+            self._service_instance = AsyncMock()
+            self._service_instance.register = AsyncMock()
+            mock.return_value = self._service_instance
+            yield mock
+
+    VALID_PAYLOAD = {
         "full_name": "John Doe",
-        "email": "john.doe@example.com",
-        "role": UserRole.STAFF,
-        "is_active": True,
-        "created_at": datetime(2026, 6, 10, 12, 0, 0, tzinfo=timezone.utc),
+        "email": "john@example.com",
+        "password": "SecureP@ss1",
+        "role": "staff",
     }
-    defaults.update(overrides or {})
-    return defaults
 
-
-@pytest.mark.asyncio
-async def test_register_success(monkeypatch):
-    """POST /api/v1/auth/register with valid data returns 201."""
-    fake_user = _fake_user_response()
-
-    async def mock_register(self, request):
-        from app.schemas.user import RegisterResponse
-
-        return RegisterResponse(**fake_user)
-
-    monkeypatch.setattr("app.api.v1.auth.UserService.register", mock_register)
-
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        payload = {
-            "full_name": "John Doe",
-            "email": "john.doe@example.com",
-            "password": "ValidP@ss1",
-            "role": "staff",
-        }
-        resp = await ac.post("/api/v1/auth/register", json=payload)
-
-    assert resp.status_code == status.HTTP_201_CREATED
-    body = resp.json()
-    assert body["email"] == "john.doe@example.com"
-    assert body["full_name"] == "John Doe"
-    assert body["role"] == "staff"
-    assert body["is_active"] is True
-    assert "id" in body
-    assert "created_at" in body
-    # Sensitive fields must NOT be present
-    assert "password" not in body
-    assert "password_hash" not in body
-
-
-@pytest.mark.asyncio
-async def test_register_duplicate_email(monkeypatch):
-    """Duplicate email should return 409 Conflict."""
-    async def mock_register(self, request):
-        raise ValueError(
-            "A user with email 'john.doe@example.com' is already registered."
+    async def test_register_success(self):
+        """A valid registration should return 201 with user data."""
+        user_id = uuid.uuid4()
+        self._service_instance.register.return_value = RegisterResponse(
+            id=user_id,
+            full_name="John Doe",
+            email="john@example.com",
+            role="staff",
+            is_active=True,
+            created_at="2026-06-10T12:00:00Z",
         )
 
-    monkeypatch.setattr("app.api.v1.auth.UserService.register", mock_register)
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/auth/register", json=self.VALID_PAYLOAD
+            )
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        payload = {
-            "full_name": "John Doe",
-            "email": "john.doe@example.com",
-            "password": "ValidP@ss1",
-            "role": "staff",
-        }
-        resp = await ac.post("/api/v1/auth/register", json=payload)
+        assert response.status_code == 201
+        data = response.json()
+        assert data["email"] == "john@example.com"
+        assert data["full_name"] == "John Doe"
+        assert data["role"] == "staff"
+        assert data["is_active"] is True
+        # Sensitive fields must not be present
+        assert "password" not in data
+        assert "password_hash" not in data
 
-    assert resp.status_code == status.HTTP_409_CONFLICT
-    body = resp.json()
-    assert "already registered" in body["detail"]["message"]
-
-
-@pytest.mark.asyncio
-async def test_register_internal_error(monkeypatch):
-    """Unexpected database errors should return 500."""
-    async def mock_register(self, request):
-        raise RuntimeError("An unexpected error occurred.")
-
-    monkeypatch.setattr("app.api.v1.auth.UserService.register", mock_register)
-
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        payload = {
-            "full_name": "John Doe",
-            "email": "john.doe@example.com",
-            "password": "ValidP@ss1",
-            "role": "staff",
-        }
-        resp = await ac.post("/api/v1/auth/register", json=payload)
-
-    assert resp.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-    assert "unexpected error" in resp.json()["detail"]["message"].lower()
-
-
-@pytest.mark.asyncio
-async def test_register_validation_error():
-    """Invalid payload should return 422 Unprocessable Entity."""
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        resp = await ac.post(
-            "/api/v1/auth/register",
-            json={
-                "full_name": "",
-                "email": "not-an-email",
-                "password": "weak",
-                "role": "staff",
-            },
+    async def test_register_duplicate_email(self):
+        """A duplicate email should return 409."""
+        self._service_instance.register.side_effect = ValueError(
+            "A user with email 'john@example.com' is already registered."
         )
 
-    assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-    body = resp.json()
-    assert "detail" in body
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/auth/register", json=self.VALID_PAYLOAD
+            )
+
+        assert response.status_code == 409
+        assert "already registered" in response.text.lower()
+
+    async def test_register_internal_error(self):
+        """Unexpected database errors should return 500."""
+        self._service_instance.register.side_effect = RuntimeError(
+            "An unexpected error occurred."
+        )
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/auth/register", json=self.VALID_PAYLOAD
+            )
+
+        assert response.status_code == 500
+        assert "unexpected error" in response.text.lower()
+
+    async def test_register_validation_error(self):
+        """Invalid payload should return 422."""
+        invalid_payload = {
+            "full_name": "J",
+            "email": "not-an-email",
+            "password": "short",
+            "role": "invalid_role",
+        }
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/auth/register", json=invalid_payload
+            )
+
+        assert response.status_code == 422
+
+
+# ═══════════════════════════════════════════════════════════════
+# ── Login Endpoint Tests
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestLogin:
+    """Tests for POST /api/v1/auth/login."""
+
+    @pytest.fixture(autouse=True)
+    def mock_user_service(self):
+        """Mock UserService to avoid database dependency."""
+        with patch("app.api.v1.auth.UserService") as mock:
+            self._service_instance = AsyncMock()
+            self._service_instance.login = AsyncMock()
+            mock.return_value = self._service_instance
+            yield mock
+
+    VALID_PAYLOAD = {
+        "email": "john@example.com",
+        "password": "SecureP@ss1",
+    }
+
+    async def test_login_success(self):
+        """Valid credentials should return 200 with user profile and tokens."""
+        user_id = uuid.uuid4()
+        self._service_instance.login.return_value = LoginResponse(
+            user=RegisterResponse(
+                id=user_id,
+                full_name="John Doe",
+                email="john@example.com",
+                role="staff",
+                is_active=True,
+                created_at="2026-06-10T12:00:00Z",
+            ),
+            tokens=TokenResponse(
+                access_token="eyJhbGciOiJIUzI1NiIs...",
+                refresh_token="eyJhbGciOiJIUzI1NiIs...",
+                token_type="bearer",
+                expires_in=1800,
+            ),
+        )
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/auth/login", json=self.VALID_PAYLOAD
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        # User profile assertions
+        assert "user" in data
+        assert data["user"]["email"] == "john@example.com"
+        assert data["user"]["full_name"] == "John Doe"
+        assert data["user"]["role"] == "staff"
+        assert "password" not in str(data)
+        assert "password_hash" not in str(data)
+        # Token assertions
+        assert "tokens" in data
+        assert data["tokens"]["access_token"] == "eyJhbGciOiJIUzI1NiIs..."
+        assert data["tokens"]["token_type"] == "bearer"
+        assert data["tokens"]["expires_in"] == 1800
+
+    async def test_login_invalid_credentials(self):
+        """Invalid credentials should return 401."""
+        self._service_instance.login.side_effect = ValueError(
+            "Invalid email or password."
+        )
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/auth/login", json=self.VALID_PAYLOAD
+            )
+
+        assert response.status_code == 401
+        assert "invalid" in response.text.lower()
+
+    async def test_login_inactive_account(self):
+        """Inactive account should return 403."""
+        self._service_instance.login.side_effect = ValueError(
+            "Account is inactive. Contact an administrator."
+        )
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/auth/login", json=self.VALID_PAYLOAD
+            )
+
+        assert response.status_code == 403
+        assert "inactive" in response.text.lower()
+
+    async def test_login_validation_error(self):
+        """Invalid payload should return 422."""
+        invalid_payload = {"email": "not-an-email", "password": "short"}
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/auth/login", json=invalid_payload
+            )
+
+        assert response.status_code == 422

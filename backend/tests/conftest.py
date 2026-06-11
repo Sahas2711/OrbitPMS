@@ -24,9 +24,13 @@ def mock_session() -> AsyncMock:
 @pytest.fixture
 def mock_user_repo(mock_session):
     """Patch UserRepository to return a controllable mock."""
-    with patch("app.services.user.UserRepository") as mock_repo_cls:
+    with patch("app.core.security.UserRepository") as mock_repo_cls, \
+         patch("app.services.user.UserRepository") as mock_repo_cls2:
         mock_repo = MagicMock()
         mock_repo.get_by_email = AsyncMock()
+        mock_repo.get_by_id = AsyncMock()
         mock_repo.create = AsyncMock()
         mock_repo_cls.return_value = mock_repo
+        mock_repo_cls2.return_value = mock_repo
+
         yield mock_repo

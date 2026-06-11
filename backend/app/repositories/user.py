@@ -33,7 +33,7 @@ class UserRepository:
             full_name: User's display name.
             email: Unique email address.
             password_hash: Bcrypt hash of the user's password.
-            role: User role string (default: "staff").
+            role: User role string (default: ``"staff"``).
 
         Returns:
             The newly created User ORM instance.
@@ -46,6 +46,7 @@ class UserRepository:
         )
         self._session.add(user)
         await self._session.flush()
+        await self._session.refresh(user)
         return user
 
     async def get_by_email(self, email: str) -> User | None:
