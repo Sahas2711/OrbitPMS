@@ -13,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.auth import router as auth_router
+from app.api.v1.rooms import router as rooms_router
 from app.database.session import engine, get_session
 
 logging.basicConfig(
@@ -46,6 +47,7 @@ app = FastAPI(
 # ── Route Registration ──────────────────────────────────────────
 
 app.include_router(auth_router)
+app.include_router(rooms_router)
 
 # ── Health Check ────────────────────────────────────────────────
 
