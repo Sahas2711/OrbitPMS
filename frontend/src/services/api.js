@@ -159,4 +159,45 @@ export async function deleteRoom(roomId) {
   return response.data;
 }
 
+export async function updateRoomStatus(roomId, status) {
+  const response = await api.patch(`/api/v1/rooms/${roomId}/status`, { status });
+  return response.data;
+}
+
+// ── Booking API Functions ────────────────────────────────────────
+
+export async function getBookings(params = {}) {
+  const query = new URLSearchParams();
+  if (params.status) query.set('status', params.status);
+  if (params.room_id) query.set('room_id', params.room_id);
+  if (params.date_from) query.set('date_from', params.date_from);
+  if (params.date_to) query.set('date_to', params.date_to);
+  if (params.skip !== undefined) query.set('skip', params.skip);
+  if (params.limit !== undefined) query.set('limit', params.limit);
+
+  const qs = query.toString();
+  const response = await api.get(`/api/v1/bookings${qs ? `?${qs}` : ''}`);
+  return response.data;
+}
+
+export async function getBooking(bookingId) {
+  const response = await api.get(`/api/v1/bookings/${bookingId}`);
+  return response.data;
+}
+
+export async function createBooking(data) {
+  const response = await api.post('/api/v1/bookings', data);
+  return response.data;
+}
+
+export async function updateBooking(bookingId, data) {
+  const response = await api.put(`/api/v1/bookings/${bookingId}`, data);
+  return response.data;
+}
+
+export async function deleteBooking(bookingId) {
+  const response = await api.delete(`/api/v1/bookings/${bookingId}`);
+  return response.data;
+}
+
 export default api;

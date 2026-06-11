@@ -3,9 +3,12 @@ import {
   HiOutlineXCircle,
   HiOutlineWrenchScrewdriver,
   HiOutlineQuestionMarkCircle,
+  HiOutlineCalendarDays,
+  HiOutlineArrowRightOnRectangle,
 } from 'react-icons/hi2';
 
 const STATUS_CONFIG = {
+  // ── Room statuses ────────────────────────────────────────────
   available: {
     label: 'Available',
     bg: 'bg-alert-success/10',
@@ -26,6 +29,35 @@ const STATUS_CONFIG = {
     text: 'text-alert-warning',
     dot: 'bg-alert-warning',
     icon: HiOutlineWrenchScrewdriver,
+  },
+  // ── Booking statuses ─────────────────────────────────────────
+  confirmed: {
+    label: 'Confirmed',
+    bg: 'bg-alert-info/10',
+    text: 'text-alert-info',
+    dot: 'bg-alert-info',
+    icon: HiOutlineCheckCircle,
+  },
+  checked_in: {
+    label: 'Checked In',
+    bg: 'bg-cyan-50',
+    text: 'text-cyan-600',
+    dot: 'bg-cyan-500',
+    icon: HiOutlineCalendarDays,
+  },
+  checked_out: {
+    label: 'Checked Out',
+    bg: 'bg-slate-100',
+    text: 'text-slate-500',
+    dot: 'bg-slate-400',
+    icon: HiOutlineArrowRightOnRectangle,
+  },
+  cancelled: {
+    label: 'Cancelled',
+    bg: 'bg-red-50',
+    text: 'text-red-500',
+    dot: 'bg-red-400',
+    icon: HiOutlineXCircle,
   },
 };
 

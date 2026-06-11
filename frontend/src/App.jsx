@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import RoomManagement from './pages/RoomManagement';
+import BookingManagement from './pages/BookingManagement';
 
 function App() {
   return (
@@ -57,6 +58,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <RoomManagement />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Booking Management */}
+          <Route
+            path="/bookings"
+            element={
+              <ProtectedRoute>
+                <BookingManagement />
               </ProtectedRoute>
             }
           />

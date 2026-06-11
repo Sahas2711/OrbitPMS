@@ -225,6 +225,14 @@ class BookingResponse(BaseModel):
         ...,
         description="UUID of the booked room",
     )
+    room_number: str | None = Field(
+        default=None,
+        description="Room number of the booked room",
+    )
+    room_type: str | None = Field(
+        default=None,
+        description="Room type of the booked room",
+    )
     check_in_date: date = Field(
         ...,
         description="Check-in date",
@@ -259,6 +267,8 @@ class BookingResponse(BaseModel):
                 "guest_email": "john@example.com",
                 "guest_phone": "+1-555-0123",
                 "room_id": "1e6a8f64-5717-4562-b3fc-2c963f66afa6",
+                "room_number": "101",
+                "room_type": "deluxe",
                 "check_in_date": "2026-07-01",
                 "check_out_date": "2026-07-05",
                 "booking_status": "confirmed",
