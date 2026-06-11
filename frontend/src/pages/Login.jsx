@@ -7,10 +7,11 @@ import { HiOutlineEnvelope, HiOutlineLockClosed } from 'react-icons/hi2';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import AuthLayout from '../components/AuthLayout';
-import { loginUser } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState('');
 
@@ -30,14 +31,7 @@ export default function Login() {
     setServerError('');
 
     try {
-      const result = await loginUser(data.email, data.password);
-
-      // Store tokens
-      if (result.tokens) {
-        localStorage.setItem('access_token', result.tokens.access_token);
-        localStorage.setItem('refresh_token', result.tokens.refresh_token);
-      }
-
+      await login(data.email, data.password);
       toast.success('Welcome back!');
       navigate('/dashboard');
     } catch (err) {
