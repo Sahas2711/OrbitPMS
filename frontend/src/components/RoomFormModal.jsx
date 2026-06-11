@@ -16,7 +16,12 @@ const INITIAL_ERRORS = {
   description: '',
 };
 
-export default function RoomFormModal({ open, onClose, onSave, room = null }) {
+export default function RoomFormModal({
+  open,
+  onClose,
+  onSave,
+  room = null,
+}) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [errors, setErrors] = useState(INITIAL_ERRORS);
   const [saving, setSaving] = useState(false);
@@ -24,6 +29,7 @@ export default function RoomFormModal({ open, onClose, onSave, room = null }) {
   const firstInputRef = useRef(null);
   const isEditing = !!room;
 
+  // Reset form when modal opens
   useEffect(() => {
     if (open) {
       if (room) {
@@ -39,10 +45,13 @@ export default function RoomFormModal({ open, onClose, onSave, room = null }) {
       setErrors(INITIAL_ERRORS);
       setServerError('');
       setSaving(false);
+
+      // Auto-focus first field
       setTimeout(() => firstInputRef.current?.focus(), 100);
     }
   }, [open, room]);
 
+  // Close on Escape
   useEffect(() => {
     if (!open) return;
     const handleKey = (e) => {
@@ -52,10 +61,13 @@ export default function RoomFormModal({ open, onClose, onSave, room = null }) {
     return () => window.removeEventListener('keydown', handleKey);
   }, [open, onClose]);
 
+  // ── Validation ───────────────────────────────────────────────
+
   const validate = () => {
     const newErrors = { ...INITIAL_ERRORS };
     let valid = true;
 
+    // Room number
     const num = form.room_number.trim().toUpperCase();
     if (!num) {
       newErrors.room_number = 'Room number is required';
@@ -65,11 +77,13 @@ export default function RoomFormModal({ open, onClose, onSave, room = null }) {
       valid = false;
     }
 
+    // Room type
     if (!['standard', 'deluxe', 'suite'].includes(form.room_type)) {
       newErrors.room_type = 'Please select a valid room type';
       valid = false;
     }
 
+    // Price
     const price = parseFloat(form.price_per_night);
     if (!form.price_per_night) {
       newErrors.price_per_night = 'Price per night is required';
@@ -82,6 +96,7 @@ export default function RoomFormModal({ open, onClose, onSave, room = null }) {
       valid = false;
     }
 
+    // Description (optional)
     if (form.description && form.description.length > 1000) {
       newErrors.description = 'Description must be under 1000 characters';
       valid = false;
@@ -91,12 +106,16 @@ export default function RoomFormModal({ open, onClose, onSave, room = null }) {
     return valid;
   };
 
+  // ── Submit ────────────────────────────────────────────────────
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setServerError('');
+
     if (!validate()) return;
 
     setSaving(true);
+
     try {
       const payload = {
         room_number: form.room_number.trim().toUpperCase(),
@@ -104,31 +123,40 @@ export default function RoomFormModal({ open, onClose, onSave, room = null }) {
         price_per_night: parseFloat(form.price_per_night),
         description: form.description.trim() || null,
       };
+
       await onSave(payload);
     } catch (err) {
-      const detail = err.response?.data?.detail;
+      const response = err.response?.data;
+      const detail = response?.detail;
+
+      // Field-level server error (e.g. 409 duplicate room_number)
       if (detail?.field && detail?.message) {
         if (detail.field in errors) {
           setErrors((prev) => ({ ...prev, [detail.field]: detail.message }));
         } else {
           setServerError(detail.message);
         }
-      } else if (typeof detail === 'string') {
+      }
+      // String error message
+      else if (typeof detail === 'string') {
         setServerError(detail);
-      } else if (Array.isArray(detail)) {
-        const fieldErrors = {};
+      }
+      // Pydantic-style validation errors array
+      else if (Array.isArray(detail)) {
+        const fieldErrors = { ...INITIAL_ERRORS };
         detail.forEach((errItem) => {
           const field = errItem.loc?.[errItem.loc.length - 1];
-          if (field && field in INITIAL_ERRORS) {
+          if (field && field in fieldErrors) {
             fieldErrors[field] = errItem.msg || 'Invalid value';
           }
         });
-        if (Object.keys(fieldErrors).length > 0) {
-          setErrors((prev) => ({ ...prev, ...fieldErrors }));
-        } else {
+        setErrors((prev) => ({ ...prev, ...fieldErrors }));
+        if (!Object.values(fieldErrors).some(Boolean)) {
           setServerError('Validation failed. Please check your input.');
         }
-      } else {
+      }
+      // Fallback
+      else {
         setServerError('An unexpected error occurred. Please try again.');
       }
     } finally {
@@ -136,9 +164,14 @@ export default function RoomFormModal({ open, onClose, onSave, room = null }) {
     }
   };
 
+  // ── Field change ──────────────────────────────────────────────
+
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: '' }));
+    // Clear field-level error on change
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: '' }));
+    }
     if (serverError) setServerError('');
   };
 
@@ -146,8 +179,11 @@ export default function RoomFormModal({ open, onClose, onSave, room = null }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      {/* Backdrop click to close */}
       <div className="absolute inset-0" onClick={saving ? undefined : onClose} />
+
       <div className="relative w-full max-w-lg bg-bg-card rounded-modal shadow-modal border border-border overflow-hidden">
+        {/* ── Header ─────────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h3 className="text-card-title font-semibold text-text-primary m-0">
             {isEditing ? 'Edit Room' : 'Add New Room'}
@@ -162,15 +198,21 @@ export default function RoomFormModal({ open, onClose, onSave, room = null }) {
           </button>
         </div>
 
+        {/* ── Body ───────────────────────────────────────────────── */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Server Error Banner */}
           {serverError && (
             <div className="p-3 rounded-input bg-red-50 border border-alert-error/20">
               <p className="text-small text-alert-error m-0">{serverError}</p>
             </div>
           )}
 
+          {/* Room Number */}
           <div>
-            <label htmlFor="room-number" className="block text-small font-medium text-text-secondary mb-1.5">
+            <label
+              htmlFor="room-number"
+              className="block text-small font-medium text-text-secondary mb-1.5"
+            >
               Room Number <span className="text-alert-error">*</span>
             </label>
             <input
@@ -193,8 +235,12 @@ export default function RoomFormModal({ open, onClose, onSave, room = null }) {
             )}
           </div>
 
+          {/* Room Type */}
           <div>
-            <label htmlFor="room-type" className="block text-small font-medium text-text-secondary mb-1.5">
+            <label
+              htmlFor="room-type"
+              className="block text-small font-medium text-text-secondary mb-1.5"
+            >
               Room Type <span className="text-alert-error">*</span>
             </label>
             <select
@@ -212,15 +258,23 @@ export default function RoomFormModal({ open, onClose, onSave, room = null }) {
               <option value="deluxe">Deluxe</option>
               <option value="suite">Suite</option>
             </select>
-            {errors.room_type && <p className="mt-1 text-caption text-alert-error">{errors.room_type}</p>}
+            {errors.room_type && (
+              <p className="mt-1 text-caption text-alert-error">{errors.room_type}</p>
+            )}
           </div>
 
+          {/* Price per Night */}
           <div>
-            <label htmlFor="room-price" className="block text-small font-medium text-text-secondary mb-1.5">
+            <label
+              htmlFor="room-price"
+              className="block text-small font-medium text-text-secondary mb-1.5"
+            >
               Price per Night ($) <span className="text-alert-error">*</span>
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-body text-text-muted pointer-events-none">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-body text-text-muted pointer-events-none">
+                $
+              </span>
               <input
                 id="room-price"
                 type="number"
@@ -237,12 +291,19 @@ export default function RoomFormModal({ open, onClose, onSave, room = null }) {
                 }`}
               />
             </div>
-            {errors.price_per_night && <p className="mt-1 text-caption text-alert-error">{errors.price_per_night}</p>}
+            {errors.price_per_night && (
+              <p className="mt-1 text-caption text-alert-error">{errors.price_per_night}</p>
+            )}
           </div>
 
+          {/* Description */}
           <div>
-            <label htmlFor="room-description" className="block text-small font-medium text-text-secondary mb-1.5">
-              Description <span className="text-text-muted font-normal">(optional)</span>
+            <label
+              htmlFor="room-description"
+              className="block text-small font-medium text-text-secondary mb-1.5"
+            >
+              Description{' '}
+              <span className="text-text-muted font-normal">(optional)</span>
             </label>
             <textarea
               id="room-description"
@@ -264,12 +325,20 @@ export default function RoomFormModal({ open, onClose, onSave, room = null }) {
               ) : (
                 <span />
               )}
-              <span className="text-caption text-text-muted">{form.description.length}/1000</span>
+              <span className="text-caption text-text-muted">
+                {form.description.length}/1000
+              </span>
             </div>
           </div>
 
+          {/* ── Footer ─────────────────────────────────────────────── */}
           <div className="flex items-center justify-end gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={saving}
+            >
               Cancel
             </Button>
             <Button type="submit" loading={saving}>

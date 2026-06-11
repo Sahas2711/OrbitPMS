@@ -10,6 +10,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.user import User
 from app.repositories.room import RoomRepository
 from app.schemas.room import (
     RoomCreate,
@@ -28,11 +29,40 @@ class RoomService:
     def __init__(self, session: AsyncSession) -> None:
         self._repo = RoomRepository(session)
 
-    async def create_room(self, request: RoomCreate) -> RoomResponse:
+    # ── Audit helpers ──────────────────────────────────────────────
+
+    @staticmethod
+    def _audit_log(
+        action: str,
+        details: dict,
+        actor: User | None = None,
+    ) -> None:
+        """Emit a structured audit log entry.
+
+        Args:
+            action: The action being performed (e.g. 'room.create').
+            details: Key-value pairs describing the change.
+            actor: The user performing the action, if available.
+        """
+        actor_identity = f"{actor.email} ({actor.role})" if actor else "system"
+        details_str = " | ".join(f"{k}={v}" for k, v in details.items())
+        logger.info(
+            "AUDIT: %s — actor=%s [%s]",
+            action,
+            actor_identity,
+            details_str,
+        )
+
+    async def create_room(
+        self,
+        request: RoomCreate,
+        actor: User | None = None,
+    ) -> RoomResponse:
         """Create a new room.
 
         Args:
             request: Validated room creation payload.
+            actor: The user creating the room (for audit logging).
 
         Returns:
             A RoomResponse with the created room's data.
@@ -55,11 +85,15 @@ class RoomService:
             description=request.description,
         )
 
-        logger.info(
-            "Room created: number=%s type=%s price=%s",
-            room.room_number,
-            room.room_type,
-            room.price_per_night,
+        self._audit_log(
+            "room.create",
+            {
+                "room_id": str(room.id),
+                "room_number": room.room_number,
+                "room_type": room.room_type,
+                "price_per_night": str(room.price_per_night),
+            },
+            actor=actor,
         )
 
         return self._to_response(room)
@@ -111,12 +145,14 @@ class RoomService:
         self,
         room_id: uuid.UUID,
         request: RoomUpdate,
+        actor: User | None = None,
     ) -> RoomResponse:
         """Update an existing room.
 
         Args:
             room_id: The UUID of the room to update.
             request: Validated partial update payload.
+            actor: The user updating the room (for audit logging).
 
         Returns:
             A RoomResponse with the updated room's data.
@@ -161,18 +197,40 @@ class RoomService:
         # Room should exist since we checked above
         assert room is not None
 
-        logger.info(
-            "Room updated: id=%s number=%s",
-            room_id,
-            room.room_number,
+        # Build a summary of what changed
+        changed_fields = {}
+        if request.room_number is not None:
+            changed_fields["room_number"] = request.room_number
+        if request.room_type is not None:
+            changed_fields["room_type"] = request.room_type
+        if request.price_per_night is not None:
+            changed_fields["price_per_night"] = str(request.price_per_night)
+        if request.status is not None:
+            changed_fields["status"] = request.status.value
+        if request.description is not None:
+            changed_fields["description"] = "<updated>"
+
+        self._audit_log(
+            "room.update",
+            {
+                "room_id": str(room_id),
+                "changed_fields": changed_fields,
+            },
+            actor=actor,
         )
+
         return self._to_response(room)
 
-    async def delete_room(self, room_id: uuid.UUID) -> None:
+    async def delete_room(
+        self,
+        room_id: uuid.UUID,
+        actor: User | None = None,
+    ) -> None:
         """Delete a room.
 
         Args:
             room_id: The UUID of the room to delete.
+            actor: The user deleting the room (for audit logging).
 
         Raises:
             ValueError: If the room does not exist.
@@ -183,12 +241,20 @@ class RoomService:
 
         await self._repo.delete(room_id)
 
-        logger.info("Room deleted: id=%s number=%s", room_id, room.room_number)
+        self._audit_log(
+            "room.delete",
+            {
+                "room_id": str(room_id),
+                "room_number": room.room_number,
+            },
+            actor=actor,
+        )
 
     async def change_room_status(
         self,
         room_id: uuid.UUID,
         request: RoomStatusChange,
+        actor: User | None = None,
     ) -> RoomResponse:
         """Change a room's availability status.
 
@@ -200,6 +266,7 @@ class RoomService:
         Args:
             room_id: The UUID of the room.
             request: The desired new status.
+            actor: The user changing the status (for audit logging).
 
         Returns:
             A RoomResponse with the updated room.
@@ -223,13 +290,17 @@ class RoomService:
         )
         assert room is not None
 
-        logger.info(
-            "Room status changed: id=%s number=%s %s → %s",
-            room_id,
-            room.room_number,
-            existing.status.value,
-            room.status.value,
+        self._audit_log(
+            "room.status_change",
+            {
+                "room_id": str(room_id),
+                "room_number": room.room_number,
+                "from_status": existing.status.value,
+                "to_status": room.status.value,
+            },
+            actor=actor,
         )
+
         return self._to_response(room)
 
     # ── Helpers ─────────────────────────────────────────────────
