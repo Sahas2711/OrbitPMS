@@ -159,9 +159,4 @@ export async function deleteRoom(roomId) {
   return response.data;
 }
 
-export async function updateRoomStatus(roomId, status) {
-  const response = await api.patch(`/api/v1/rooms/${roomId}/status`, { status });
-  return response.data;
-}
-
 export default api;

@@ -1,10 +1,5 @@
 import { useState } from 'react';
-import {
-  HiOutlineArrowsUpDown,
-  HiOutlineChevronUp,
-  HiOutlineChevronDown,
-  HiOutlineQuestionMarkCircle,
-} from 'react-icons/hi2';
+import { HiOutlineArrowsUpDown, HiOutlineChevronUp, HiOutlineChevronDown } from 'react-icons/hi2';
 import { LuLoader } from 'react-icons/lu';
 
 export default function Table({
@@ -33,23 +28,31 @@ export default function Table({
   const sortedData = [...data].sort((a, b) => {
     if (!sortField) return 0;
     const col = columns.find((c) => c.accessor === sortField);
-    if (!col || col.sortable === false) return 0;
+    if (!col || !col.sortable) return 0;
 
     let aVal = a[sortField];
     let bVal = b[sortField];
+
+    // Handle nested accessors
+    if (col.accessorKey) {
+      aVal = col.accessorKey(a);
+      bVal = col.accessorKey(b);
+    }
 
     if (aVal == null) return 1;
     if (bVal == null) return -1;
 
     if (typeof aVal === 'string') {
-      return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      const cmp = aVal.localeCompare(bVal);
+      return sortDir === 'asc' ? cmp : -cmp;
     }
     return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
   });
 
   return (
     <div className="w-full overflow-x-auto rounded-card border border-border bg-bg-card shadow-card">
-      <table className="w-full min-w-[650px] border-collapse text-left">
+      <table className="w-full min-w-[600px] border-collapse text-left">
+        {/* ── Header ──────────────────────────────────────────── */}
         <thead>
           <tr className="bg-bg-table-header">
             {columns.map((col, i) => (
@@ -61,7 +64,7 @@ export default function Table({
                     : ''
                 }`}
                 style={{ width: col.width }}
-                onClick={() => col.sortable !== false && sortable && handleSort(col.accessor)}
+                onClick={() => col.sortable !== false && handleSort(col.accessor)}
               >
                 <div className="flex items-center gap-1.5">
                   <span>{col.header}</span>
@@ -84,10 +87,14 @@ export default function Table({
           </tr>
         </thead>
 
+        {/* ── Body ────────────────────────────────────────────── */}
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={columns.length} className="px-4 py-12 text-center">
+              <td
+                colSpan={columns.length}
+                className="px-4 py-12 text-center"
+              >
                 <div className="flex flex-col items-center gap-3">
                   <LuLoader className="w-6 h-6 text-brand animate-spin" />
                   <p className="text-small text-text-muted">Loading...</p>
@@ -96,11 +103,18 @@ export default function Table({
             </tr>
           ) : sortedData.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="px-4 py-12 text-center">
+              <td
+                colSpan={columns.length}
+                className="px-4 py-12 text-center"
+              >
                 <div className="flex flex-col items-center gap-1">
                   <HiOutlineQuestionMarkCircle className="w-8 h-8 text-text-muted" />
-                  <p className="text-body font-medium text-text-secondary">{emptyMessage}</p>
-                  <p className="text-small text-text-muted">{emptyDescription}</p>
+                  <p className="text-body font-medium text-text-secondary">
+                    {emptyMessage}
+                  </p>
+                  <p className="text-small text-text-muted">
+                    {emptyDescription}
+                  </p>
                 </div>
               </td>
             </tr>
@@ -116,8 +130,15 @@ export default function Table({
                 onClick={() => onRowClick?.(row)}
               >
                 {columns.map((col, i) => (
-                  <td key={col.accessor || i} className="px-4 py-3 text-body text-text-primary">
-                    {col.render ? col.render(row) : row[col.accessor] ?? '—'}
+                  <td
+                    key={col.accessor || i}
+                    className="px-4 py-3 text-body text-text-primary"
+                  >
+                    {col.render
+                      ? col.render(row)
+                      : col.accessorKey
+                        ? col.accessorKey(row)
+                        : row[col.accessor] ?? '—'}
                   </td>
                 ))}
               </tr>
