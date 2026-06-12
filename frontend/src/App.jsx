@@ -10,6 +10,7 @@ import RoomManagement from './pages/RoomManagement';
 import BookingManagement from './pages/BookingManagement';
 import PendingArrivals from './pages/PendingArrivals';
 import CheckOut from './pages/CheckOut';
+import InvoiceManagement from './pages/InvoiceManagement';
 
 function App() {
   return (
@@ -90,6 +91,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <CheckOut />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Invoice Management */}
+          <Route
+            path="/invoices"
+            element={
+              <ProtectedRoute>
+                <InvoiceManagement />
               </ProtectedRoute>
             }
           />

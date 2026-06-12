@@ -210,4 +210,33 @@ export async function checkOutBooking(bookingId) {
   return response.data;
 }
 
+// ── Invoice API Functions ────────────────────────────────────────
+
+export async function getInvoices(params = {}) {
+  const query = new URLSearchParams();
+  if (params.skip !== undefined) query.set('skip', params.skip);
+  if (params.limit !== undefined) query.set('limit', params.limit);
+
+  const qs = query.toString();
+  const response = await api.get(`/api/v1/invoices${qs ? `?${qs}` : ''}`);
+  return response.data;
+}
+
+export async function getInvoice(invoiceId) {
+  const response = await api.get(`/api/v1/invoices/${invoiceId}`);
+  return response.data;
+}
+
+export async function getInvoiceByBooking(bookingId) {
+  const response = await api.get(`/api/v1/invoices/by-booking/${bookingId}`);
+  return response.data;
+}
+
+export async function downloadInvoicePdf(invoiceId) {
+  const response = await api.get(`/api/v1/invoices/${invoiceId}/pdf`, {
+    responseType: 'blob',
+  });
+  return response.data;
+}
+
 export default api;
