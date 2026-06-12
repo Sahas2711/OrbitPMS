@@ -1,14 +1,13 @@
 import {
   HiOutlineCheckCircle,
   HiOutlineXCircle,
-  HiOutlineWrenchScrewdriver,
   HiOutlineQuestionMarkCircle,
   HiOutlineCalendarDays,
   HiOutlineArrowRightOnRectangle,
+  HiOutlineWrenchScrewdriver,
 } from 'react-icons/hi2';
 
 const STATUS_CONFIG = {
-  // ── Room statuses ────────────────────────────────────────────
   available: {
     label: 'Available',
     bg: 'bg-alert-success/10',
@@ -30,12 +29,11 @@ const STATUS_CONFIG = {
     dot: 'bg-alert-warning',
     icon: HiOutlineWrenchScrewdriver,
   },
-  // ── Booking statuses ─────────────────────────────────────────
   confirmed: {
     label: 'Confirmed',
-    bg: 'bg-alert-info/10',
-    text: 'text-alert-info',
-    dot: 'bg-alert-info',
+    bg: 'bg-blue-50',
+    text: 'text-blue-600',
+    dot: 'bg-blue-500',
     icon: HiOutlineCheckCircle,
   },
   checked_in: {
@@ -61,7 +59,7 @@ const STATUS_CONFIG = {
   },
 };
 
-export default function StatusBadge({ status = 'unknown' }) {
+export default function StatusBadge({ status = 'unknown', size = 'md' }) {
   const config = STATUS_CONFIG[status] || {
     label: status || 'Unknown',
     bg: 'bg-bg-table-header',
@@ -72,9 +70,15 @@ export default function StatusBadge({ status = 'unknown' }) {
 
   const Icon = config.icon;
 
+  const sizeStyles = {
+    sm: 'px-2 py-0.5 text-caption gap-1',
+    md: 'px-2.5 py-1 text-caption gap-1.5',
+    lg: 'px-3 py-1.5 text-small gap-1.5',
+  };
+
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-caption font-medium ${config.bg} ${config.text}`}
+      className={`inline-flex items-center rounded-full font-medium transition-colors ${sizeStyles[size]} ${config.bg} ${config.text}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
       <Icon className="w-3.5 h-3.5" />

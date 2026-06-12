@@ -9,10 +9,11 @@ import logging
 import os
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.security import get_current_user
 from app.database.session import get_session
 from app.models.user import User
@@ -135,7 +136,7 @@ async def get_invoice_by_booking(
     summary="Download invoice PDF",
     description=(
         "Download a generated PDF invoice. "
-        "Returns 404 if the invoice or PDF file does not exist."
+        "PDFs are stored locally and served directly by the API."
     ),
     responses={
         200: {
@@ -151,11 +152,7 @@ async def download_invoice_pdf(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> FileResponse:
-    """Download a PDF invoice by invoice UUID.
-
-    Looks up the invoice, resolves the file path, and streams
-    the PDF back to the client.
-    """
+    """Download a PDF invoice by invoice UUID."""
     service = InvoiceService(session=db)
 
     try:
@@ -195,6 +192,71 @@ async def download_invoice_pdf(
         media_type="application/pdf",
         filename=file_name,
         headers={
-            "Content-Disposition": f'attachment; filename="{file_name}"',
+            "Content-Disposition": f'inline; filename="{file_name}"',
         },
     )
+
+
+@router.post(
+    "/{invoice_id}/upload-pdf",
+    status_code=status.HTTP_200_OK,
+    response_model=InvoiceResponse,
+    summary="Upload a generated PDF for an invoice",
+    description=(
+        "Accepts a PDF file generated on the frontend and stores it "
+        "locally, updating the invoice record with the file path."
+    ),
+)
+async def upload_invoice_pdf(
+    invoice_id: uuid.UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> InvoiceResponse:
+    """Upload a frontend-generated PDF for an invoice."""
+    service = InvoiceService(session=db)
+
+    try:
+        invoice_response = await service.get_invoice(invoice_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorDetail(
+                field="invoice_id",
+                message=str(exc),
+            ).model_dump(),
+        )
+
+    # Read the uploaded file
+    pdf_bytes = await file.read()
+
+    # Save to local storage
+    storage_path = settings.invoice_storage_path
+    os.makedirs(storage_path, exist_ok=True)
+    file_name = f"{invoice_response.invoice_number}.pdf"
+    file_path = os.path.join(storage_path, file_name)
+
+    with open(file_path, "wb") as f:
+        f.write(pdf_bytes)
+
+    pdf_url = f"/{storage_path.replace(os.sep, '/')}/{file_name}"
+    logger.info(
+        "PDF uploaded for invoice %s: %s (%d bytes)",
+        invoice_response.invoice_number,
+        file_path,
+        len(pdf_bytes),
+    )
+
+    # Update the invoice record via public service method
+    try:
+        updated = await service.update_pdf_url(invoice_id, pdf_url)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=ErrorDetail(
+                field="invoice_id",
+                message=str(exc),
+            ).model_dump(),
+        )
+
+    return updated

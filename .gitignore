@@ -84,3 +84,6 @@ backend/.env
 
 # Generated files
 coverage/
+
+start.sh
+start.bat

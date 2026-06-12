@@ -6,8 +6,7 @@ Includes hotel branding, guest details, and an itemised charges breakdown.
 """
 
 import logging
-import os
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from decimal import Decimal
 from io import BytesIO
 
@@ -17,7 +16,6 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, mm
 from reportlab.platypus import (
-    Image,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -494,45 +492,53 @@ def generate_invoice_pdf(
     subtotal: Decimal,
     tax_amount: Decimal,
     total_amount: Decimal,
-) -> str:
-    """Generate a PDF invoice and save it to the storage directory.
+) -> str | None:
+    """Generate a PDF invoice and save it to the local storage directory.
 
-    Creates the storage directory if it does not exist. The PDF is
-    saved as ``{storage_path}/{invoice_number}.pdf``.
+    The PDF is saved to ``{storage_path}/{invoice_number}.pdf``. The
+    directory is created automatically if it does not exist.
 
     Returns:
-        The relative file path to the generated PDF (e.g.
-        ``/storage/invoices/INV-20260701-00001.pdf``).
+        A relative URL path to the generated PDF (e.g.
+        ``/storage/invoices/INV-20260701-00001.pdf``), or ``None``
+        if generation failed.
     """
-    pdf_bytes = generate_invoice_pdf_bytes(
-        invoice_number=invoice_number,
-        issued_at=issued_at,
-        guest_name=guest_name,
-        guest_email=guest_email,
-        guest_phone=guest_phone,
-        room_number=room_number,
-        room_type=room_type,
-        check_in_date=check_in_date,
-        check_out_date=check_out_date,
-        nights_stayed=nights_stayed,
-        room_rate=room_rate,
-        subtotal=subtotal,
-        tax_amount=tax_amount,
-        total_amount=total_amount,
-    )
+    try:
+        pdf_bytes = generate_invoice_pdf_bytes(
+            invoice_number=invoice_number,
+            issued_at=issued_at,
+            guest_name=guest_name,
+            guest_email=guest_email,
+            guest_phone=guest_phone,
+            room_number=room_number,
+            room_type=room_type,
+            check_in_date=check_in_date,
+            check_out_date=check_out_date,
+            nights_stayed=nights_stayed,
+            room_rate=room_rate,
+            subtotal=subtotal,
+            tax_amount=tax_amount,
+            total_amount=total_amount,
+        )
+    except Exception:
+        logger.exception("Failed to generate PDF bytes for invoice %s", invoice_number)
+        return None
 
-    # Ensure storage directory exists
+    # Save locally
+    import os
     storage_path = settings.invoice_storage_path
     os.makedirs(storage_path, exist_ok=True)
 
     file_name = f"{invoice_number}.pdf"
     file_path = os.path.join(storage_path, file_name)
-    with open(file_path, "wb") as f:
-        f.write(pdf_bytes)
+    try:
+        with open(file_path, "wb") as f:
+            f.write(pdf_bytes)
+    except Exception:
+        logger.exception("Failed to write PDF file to %s", file_path)
+        return None
 
-    logger.info("PDF invoice saved: %s (%d bytes)", file_path, len(pdf_bytes))
-
-    # Return a URL-friendly path
+    logger.info("PDF invoice saved locally: %s (%d bytes)", file_path, len(pdf_bytes))
     return f"/{storage_path.replace(os.sep, '/')}/{file_name}"
 
 
@@ -549,6 +555,7 @@ def get_pdf_path(pdf_url: str) -> str:
     Returns:
         The absolute filesystem path to the PDF file.
     """
+    import os
     # Strip leading slash and resolve relative to backend directory
     relative = pdf_url.lstrip("/")
     return os.path.abspath(relative)

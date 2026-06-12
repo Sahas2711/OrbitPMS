@@ -7,6 +7,7 @@ const Input = forwardRef(function Input(
     placeholder,
     error,
     icon: Icon,
+    rightIcon,
     disabled,
     className = '',
     inputClassName = '',
@@ -45,10 +46,17 @@ const Input = forwardRef(function Input(
                 : 'border-border focus:border-brand focus:ring-2 focus:ring-brand/20'
             }
             ${Icon ? 'pl-10' : ''}
+            ${rightIcon ? 'pr-10' : ''}
             ${inputClassName}
           `}
           {...props}
         />
+
+        {rightIcon && (
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+            {rightIcon}
+          </div>
+        )}
       </div>
 
       {error && (

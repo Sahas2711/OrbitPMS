@@ -73,3 +73,48 @@ class UserRepository:
             The matching User, or None if not found.
         """
         return await self._session.get(User, user_id)
+
+    async def get_all(self) -> list[User]:
+        """Retrieve all users.
+
+        Returns:
+            List of all User records.
+        """
+        result = await self._session.execute(
+            select(User).order_by(User.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def update_status(self, user_id: uuid.UUID, is_active: bool) -> User | None:
+        """Update a user's active status.
+
+        Args:
+            user_id: The UUID of the user.
+            is_active: New active status.
+
+        Returns:
+            The updated User, or None if not found.
+        """
+        user = await self.get_by_id(user_id)
+        if user is None:
+            return None
+        user.is_active = is_active
+        await self._session.flush()
+        await self._session.refresh(user)
+        return user
+
+    async def delete(self, user_id: uuid.UUID) -> bool:
+        """Delete a user by ID.
+
+        Args:
+            user_id: The UUID of the user.
+
+        Returns:
+            True if deleted, False if not found.
+        """
+        user = await self.get_by_id(user_id)
+        if user is None:
+            return False
+        await self._session.delete(user)
+        await self._session.flush()
+        return True

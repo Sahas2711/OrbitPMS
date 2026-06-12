@@ -9,6 +9,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +17,7 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.bookings import router as bookings_router
 from app.api.v1.invoices import router as invoices_router
 from app.api.v1.rooms import router as rooms_router
+from app.api.v1.users import router as users_router
 from app.database.session import engine, get_session
 
 logging.basicConfig(
@@ -46,12 +48,27 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── CORS Middleware ─────────────────────────────────────────────
+# Allow the Vite dev server (5173) to make cross-origin requests.
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # ── Route Registration ──────────────────────────────────────────
 
 app.include_router(auth_router)
 app.include_router(rooms_router)
 app.include_router(bookings_router)
 app.include_router(invoices_router)
+app.include_router(users_router)
 
 # ── Health Check ────────────────────────────────────────────────
 

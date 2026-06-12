@@ -160,24 +160,15 @@ export default function AvailabilityCalendar() {
 
   return (
     <div className="min-h-svh bg-bg-page">
-      {/* Header */}
-      <header className="bg-primary-900 text-white px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <HiOutlineCalendarDays className="w-6 h-6 text-brand" />
-          <h1 className="text-card-title font-semibold m-0">OrbitPMS</h1>
+      {/* Title */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-section-title font-bold text-text-primary m-0">Availability Calendar</h2>
+          <p className="text-body text-text-secondary mt-1">
+            View room occupancy and availability across the month
+          </p>
         </div>
-      </header>
-
-      <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-        {/* Title */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h2 className="text-section-title font-bold text-text-primary m-0">Availability Calendar</h2>
-            <p className="text-body text-text-secondary mt-1">
-              View room occupancy and availability across the month
-            </p>
-          </div>
-        </div>
+      </div>
 
         {/* Month Navigation */}
         <div className="bg-bg-card rounded-card shadow-card border border-border p-4 mb-6">
@@ -427,8 +418,6 @@ export default function AvailabilityCalendar() {
             </span>
           </div>
         )}
-      </main>
-
       {/* Floating tooltip */}
       {renderTooltip()}
     </div>

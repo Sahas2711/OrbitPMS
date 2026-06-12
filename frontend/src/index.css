@@ -1,90 +1,85 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-/* ── Tailwind v4 Custom Theme ────────────────────────────────────
-   Based on docs/THEME.md – OrbitPMS Design System
-   ────────────────────────────────────────────────────────────── */
 
 @theme {
-  /* ── Colors ────────────────────────────────────────────────── */
-
-  /* Primary (sidebar, nav, headers) */
-  --color-primary-900: #0F172A;
-  --color-primary-800: #1E293B;
-  --color-primary-700: #334155;
-
-  /* Brand */
-  --color-brand: #2563EB;
-  --color-brand-hover: #1D4ED8;
-  --color-brand-light: #DBEAFE;
-
-  /* Status */
-  --color-status-available: #22C55E;
-  --color-status-occupied: #EF4444;
-  --color-status-maintenance: #F59E0B;
-  --color-status-reserved: #8B5CF6;
-  --color-status-checkedin: #06B6D4;
-  --color-status-checkedout: #64748B;
-
-  /* Backgrounds */
-  --color-bg-page: #F8FAFC;
-  --color-bg-card: #FFFFFF;
-  --color-bg-table-header: #F1F5F9;
-
-  /* Border */
-  --color-border: #E2E8F0;
-  --color-border-secondary: #CBD5E1;
-
-  /* Text */
-  --color-text-primary: #0F172A;
-  --color-text-secondary: #475569;
-  --color-text-muted: #94A3B8;
-
-  /* Alerts */
-  --color-alert-success: #16A34A;
-  --color-alert-warning: #D97706;
-  --color-alert-error: #DC2626;
-  --color-alert-info: #0284C7;
-
-  /* ── Typography ─────────────────────────────────────────────── */
-
-  --font-family-sans: 'Inter', 'Segoe UI', sans-serif;
-
-  /* Font sizes from THEME.md */
+  --font-size-display: 40px;
   --font-size-page-title: 32px;
   --font-size-section-title: 24px;
   --font-size-card-title: 20px;
   --font-size-body: 16px;
   --font-size-small: 14px;
   --font-size-caption: 12px;
+  --font-size-xs: 11px;
 
-  /* ── Border Radius ──────────────────────────────────────────── */
-
+  --color-primary-900: #0F172A;
+  --color-primary-800: #1E293B;
+  --color-primary-700: #334155;
+  --color-brand: #2563EB;
+  --color-brand-hover: #1D4ED8;
+  --color-brand-light: #DBEAFE;
+  --color-status-available: #22C55E;
+  --color-status-occupied: #EF4444;
+  --color-status-maintenance: #F59E0B;
+  --color-status-reserved: #8B5CF6;
+  --color-status-checkedin: #06B6D4;
+  --color-status-checkedout: #64748B;
+  --color-bg-page: #F0F4F8;
+  --color-bg-card: #FFFFFF;
+  --color-bg-table-header: #F1F5F9;
+  --color-border: #E2E8F0;
+  --color-border-secondary: #CBD5E1;
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94A3B8;
+  --color-alert-success: #16A34A;
+  --color-alert-warning: #D97706;
+  --color-alert-error: #DC2626;
+  --color-alert-info: #0284C7;
   --radius-input: 8px;
   --radius-button: 8px;
   --radius-card: 12px;
   --radius-modal: 16px;
-
-  /* ── Shadows ────────────────────────────────────────────────── */
-
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.12);
-  --shadow-modal: 0 20px 40px rgba(0, 0, 0, 0.15);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-hover: 0 4px 12px rgba(0,0,0,0.1);
+  --shadow-modal: 0 20px 40px rgba(0,0,0,0.15);
 }
-
-/* ── Base Styles ──────────────────────────────────────────────── */
 
 body {
   margin: 0;
-  font-family: 'Inter', 'Segoe UI', sans-serif;
+  font-family: 'Inter', 'Segoe UI', -apple-system, sans-serif;
   background-color: var(--color-bg-page);
   color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
 }
 
 #root {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-secondary); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+::selection { background-color: #DBEAFE; color: #0F172A; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+.animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+.animate-slideUp { animation: slideUp 0.3s ease-out; }
+.animate-slideDown { animation: slideDown 0.2s ease-out; }
+.animate-scaleIn { animation: scaleIn 0.2s ease-out; }
+
+.skeleton {
+  background: linear-gradient(90deg, #F1F5F9 25%, #e8edf3 50%, #F1F5F9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
 }
