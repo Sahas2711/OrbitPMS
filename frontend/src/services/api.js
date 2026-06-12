@@ -200,4 +200,14 @@ export async function deleteBooking(bookingId) {
   return response.data;
 }
 
+export async function checkInBooking(bookingId) {
+  const response = await api.post(`/api/v1/bookings/${bookingId}/check-in`);
+  return response.data;
+}
+
+export async function checkOutBooking(bookingId) {
+  const response = await api.post(`/api/v1/bookings/${bookingId}/check-out`);
+  return response.data;
+}
+
 export default api;

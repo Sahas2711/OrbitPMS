@@ -15,10 +15,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import BookingStatus, RoomStatus
+from app.models.invoice import Invoice
 from app.models.user import User
 from app.repositories.booking import BookingRepository
 from app.repositories.room import RoomRepository
 from app.schemas.booking import BookingCreate, BookingResponse, BookingUpdate
+from app.schemas.invoice import InvoiceResponse
+
+# Default tax rate applied to room charges at checkout
+DEFAULT_TAX_RATE = Decimal("0.10")
 
 logger = logging.getLogger(__name__)
 
@@ -340,6 +345,242 @@ class BookingService:
                 "room_id": str(booking.room_id),
             },
             actor=actor,
+        )
+
+    # ── Check-in operation ──────────────────────────────────────
+
+    async def check_in(
+        self,
+        booking_id: uuid.UUID,
+        actor: User | None = None,
+    ) -> BookingResponse:
+        """Check a guest into their room.
+
+        Validates that the booking exists and is in "confirmed" status,
+        then atomically:
+        - Changes the booking status to "checked_in"
+        - Updates the associated room status to "occupied"
+
+        Both operations are performed within the same database transaction
+        to ensure consistency. If either fails, the entire operation rolls back.
+
+        Args:
+            booking_id: The UUID of the booking to check in.
+            actor: The user performing the check-in (for audit logging).
+
+        Returns:
+            A BookingResponse with the updated booking data.
+
+        Raises:
+            ValueError: If the booking is not found, not in confirmed status,
+                or the check-in date is in the future.
+        """
+        # 1. Verify booking exists
+        booking = await self._repo.get_by_id(booking_id)
+        if booking is None:
+            raise ValueError(f"Booking with id '{booking_id}' not found.")
+
+        # 2. Validate booking is in "confirmed" status
+        if booking.booking_status != BookingStatus.CONFIRMED:
+            raise ValueError(
+                f"Cannot check in: booking is currently "
+                f"'{booking.booking_status.value}'. "
+                f"Only 'confirmed' bookings can be checked in."
+            )
+
+        # 3. Validate check-in date is not in the future
+        today = date.today()
+        if booking.check_in_date > today:
+            raise ValueError(
+                f"Cannot check in: check-in date "
+                f"({booking.check_in_date.isoformat()}) is in the future. "
+                f"Check-in is only allowed on or after the scheduled date."
+            )
+
+        # 4. Ensure the room is not under maintenance
+        room = await self._room_repo.get_by_id(booking.room_id)
+        if room is not None and room.status == RoomStatus.MAINTENANCE:
+            raise ValueError(
+                f"Cannot check in: room '{room.room_number}' is currently "
+                f"under maintenance. Please assign a different room first."
+            )
+
+        # 5. Atomically update booking status and room status
+        #    Both operations share the same session; the outer request
+        #    context (get_session) commits or rolls back as a unit.
+        try:
+            # Update booking status
+            booking = await self._repo.update(
+                booking_id=booking_id,
+                booking_status=BookingStatus.CHECKED_IN,
+            )
+            assert booking is not None
+
+            # Update room to occupied
+            await self._room_repo.update(
+                room_id=booking.room_id,
+                status=RoomStatus.OCCUPIED,
+            )
+        except Exception:
+            await self._session.rollback()
+            raise
+
+        self._audit_log(
+            "booking.check_in",
+            {
+                "booking_id": str(booking_id),
+                "guest": booking.guest_name,
+                "room_id": str(booking.room_id),
+                "room_number": booking.room.room_number if booking.room else "?",
+                "check_in_date": booking.check_in_date.isoformat(),
+            },
+            actor=actor,
+        )
+
+        logger.info(
+            "Guest checked in: booking=%s guest=%s room=%s",
+            booking_id,
+            booking.guest_name,
+            booking.room_id,
+        )
+
+        return self._to_response(booking)
+
+    # ── Check-out operation ─────────────────────────────────────
+
+    async def check_out(
+        self,
+        booking_id: uuid.UUID,
+        actor: User | None = None,
+    ) -> InvoiceResponse:
+        """Check a guest out and generate an invoice.
+
+        Performs the complete checkout workflow atomically:
+        1. Validates the booking exists and is in "checked_in" status
+        2. Calculates charges (nights stayed, room charges, taxes, total)
+        3. Creates an invoice record
+        4. Updates booking status to "checked_out"
+        5. Releases the room back to "available"
+
+        All operations share the same database transaction.
+
+        Args:
+            booking_id: The UUID of the booking to check out.
+            actor: The user performing the check-out (for audit logging).
+
+        Returns:
+            An InvoiceResponse with the generated invoice details.
+
+        Raises:
+            ValueError: If the booking is not found, not checked in,
+                or already checked out.
+        """
+        # 1. Verify booking exists
+        booking = await self._repo.get_by_id(booking_id)
+        if booking is None:
+            raise ValueError(f"Booking with id '{booking_id}' not found.")
+
+        # 2. Validate booking is in "checked_in" status
+        if booking.booking_status != BookingStatus.CHECKED_IN:
+            raise ValueError(
+                f"Cannot check out: booking is currently "
+                f"'{booking.booking_status.value}'. "
+                f"Only 'checked_in' bookings can be checked out."
+            )
+
+        # 3. Fetch room for pricing
+        room = await self._room_repo.get_by_id(booking.room_id)
+        if room is None:
+            raise ValueError(
+                f"Room associated with booking '{booking_id}' not found."
+            )
+
+        # 4. Calculate charges
+        today = date.today()
+        check_in = booking.check_in_date
+        scheduled_check_out = booking.check_out_date
+
+        # Use actual check-out date (today) if checking out early,
+        # otherwise use the scheduled check-out date.
+        actual_check_out = today if today < scheduled_check_out else scheduled_check_out
+
+        nights_stayed = (actual_check_out - check_in).days
+        if nights_stayed <= 0:
+            nights_stayed = 1  # Minimum 1 night charge
+
+        room_rate = room.price_per_night
+        subtotal = room_rate * Decimal(str(nights_stayed))
+        tax_amount = (subtotal * DEFAULT_TAX_RATE).quantize(Decimal("0.01"))
+        total = (subtotal + tax_amount).quantize(Decimal("0.01"))
+
+        # 5. Generate a unique invoice number
+        today_str = today.strftime("%Y%m%d")
+        invoice_number = f"INV-{today_str}-{booking_id.hex[:8].upper()}"
+
+        # 6. Atomically create invoice, update booking, release room
+        try:
+            # Create invoice
+            invoice = Invoice(
+                booking_id=booking_id,
+                invoice_number=invoice_number,
+                subtotal=subtotal,
+                tax_amount=tax_amount,
+                total_amount=total,
+            )
+            self._session.add(invoice)
+            await self._session.flush()
+            await self._session.refresh(invoice)
+
+            # Update booking to checked_out + store the calculated total
+            booking = await self._repo.update(
+                booking_id=booking_id,
+                booking_status=BookingStatus.CHECKED_OUT,
+                total_amount=total,
+            )
+            assert booking is not None
+
+            # Release room back to available
+            await self._room_repo.update(
+                room_id=booking.room_id,
+                status=RoomStatus.AVAILABLE,
+            )
+        except Exception:
+            await self._session.rollback()
+            raise
+
+        self._audit_log(
+            "booking.check_out",
+            {
+                "booking_id": str(booking_id),
+                "guest": booking.guest_name,
+                "room_id": str(booking.room_id),
+                "room_number": booking.room.room_number if booking.room else "?",
+                "nights": str(nights_stayed),
+                "subtotal": str(subtotal),
+                "tax": str(tax_amount),
+                "total": str(total),
+                "invoice": invoice_number,
+            },
+            actor=actor,
+        )
+
+        logger.info(
+            "Guest checked out: booking=%s guest=%s room=%s invoice=%s total=%s",
+            booking_id,
+            booking.guest_name,
+            booking.room_id,
+            invoice_number,
+            total,
+        )
+
+        return InvoiceResponse(
+            id=invoice.id,
+            booking_id=booking_id,
+            invoice_number=invoice_number,
+            subtotal=subtotal,
+            tax_amount=tax_amount,
+            total_amount=total,
+            issued_at=invoice.issued_at,
         )
 
     # ── Helpers ─────────────────────────────────────────────────
