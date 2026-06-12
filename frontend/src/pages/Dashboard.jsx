@@ -79,7 +79,6 @@ export default function Dashboard() {
       (b) => b.booking_status === 'confirmed' || b.booking_status === 'checked_in'
     ).length;
 
-    // Revenue calculation
     let todayRevenue = 0;
     const todayCheckouts = bookings.filter(
       (b) => b.check_out_date === todaysDate && b.booking_status === 'checked_out'
@@ -178,26 +177,6 @@ export default function Dashboard() {
       trendColor: kpis.maintenanceRooms > 0 ? 'text-alert-error' : 'text-alert-success',
     },
   ];
-        {/* Module Navigation */}
-        <div className="mb-8">
-          <h3 className="text-card-title font-semibold text-text-primary mb-4">
-            Modules
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <button
-              onClick={() => navigate('/rooms')}
-              className="bg-bg-card rounded-card shadow-card border border-border p-5 text-left transition-all duration-150 hover:shadow-hover hover:-translate-y-0.5 group cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-lg bg-brand-light flex items-center justify-center mb-3 group-hover:bg-brand group-hover:text-white transition-all">
-                <HiOutlineSquares2X2 className="w-5 h-5 text-brand group-hover:text-white transition-colors" />
-              </div>
-              <h4 className="text-body font-semibold text-text-primary m-0">
-                Room Management
-              </h4>
-              <p className="text-small text-text-muted mt-1 m-0">
-                Manage hotel rooms, availability, and pricing
-              </p>
-            </button>
 
   // ── Recent Activity (combined) ───────────────────────────────
 
@@ -237,7 +216,6 @@ export default function Dashboard() {
 
   const urgentActions = useMemo(() => {
     const actions = [];
-    // Overdue check-ins
     bookings.filter((b) => {
       try {
         return b.booking_status === 'confirmed' && isPast(parseISO(b.check_in_date)) && !isToday(parseISO(b.check_in_date));
@@ -400,17 +378,6 @@ export default function Dashboard() {
             >
               View All <HiOutlineChevronRight className="w-3 h-3" />
             </button>
-
-            <button
-              onClick={() => navigate('/availability')}
-              className="bg-bg-card rounded-card shadow-card border border-border p-5 text-left transition-all duration-150 hover:shadow-hover hover:-translate-y-0.5 group cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-lg bg-brand-light flex items-center justify-center mb-3 group-hover:bg-brand group-hover:text-white transition-all">
-                <HiOutlineCalendar className="w-5 h-5 text-brand group-hover:text-white transition-colors" />
-              </div>
-              <h4 className="text-body font-semibold text-text-primary m-0">Availability Calendar</h4>
-              <p className="text-small text-text-muted mt-1 m-0">View room occupancy across the month</p>
-            </button>
           </div>
           <div className="p-4">
             {todaysDepartures.length === 0 ? (
@@ -547,7 +514,6 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="p-5">
-            {/* Bar chart */}
             <div className="flex items-end gap-2 h-32 mb-4">
               <div className="flex-1 flex flex-col items-center gap-1">
                 <motion.div
@@ -584,7 +550,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Legend */}
             <div className="flex items-center justify-center gap-6 text-caption text-text-muted">
               <span className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-alert-success" />
