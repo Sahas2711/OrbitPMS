@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: orbitpms-backend
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://orbitpms.vercel.app
+      - key: DEBUG
+        value: "false"
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "7"
+      - key: HOTEL_NAME
+        value: OrbitPMS Hotel & Suites
+      - key: HOTEL_ADDRESS
+        value: "123 Hospitality Drive"
+      - key: HOTEL_CITY_STATE_ZIP
+        value: "San Francisco, CA 94105"
+      - key: HOTEL_PHONE
+        value: "+1-555-ORBIT (67248)"
+      - key: HOTEL_EMAIL
+        value: stay@orbitpms.com
+      - key: HOTEL_WEBSITE
+        value: www.orbitpms.com
+      - key: DEFAULT_TAX_RATE
+        value: "0.10"
+      - key: INVOICE_STORAGE_PATH
+        value: /var/data/invoices
