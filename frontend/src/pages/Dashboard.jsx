@@ -85,7 +85,9 @@ export default function Dashboard() {
 
         {/* Module Navigation */}
         <div className="mb-8">
-          <h3 className="text-card-title font-semibold text-text-primary mb-4">Modules</h3>
+          <h3 className="text-card-title font-semibold text-text-primary mb-4">
+            Modules
+          </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <button
               onClick={() => navigate('/rooms')}
@@ -94,8 +96,12 @@ export default function Dashboard() {
               <div className="w-10 h-10 rounded-lg bg-brand-light flex items-center justify-center mb-3 group-hover:bg-brand group-hover:text-white transition-all">
                 <HiOutlineSquares2X2 className="w-5 h-5 text-brand group-hover:text-white transition-colors" />
               </div>
-              <h4 className="text-body font-semibold text-text-primary m-0">Room Management</h4>
-              <p className="text-small text-text-muted mt-1 m-0">Manage hotel rooms, availability, and pricing</p>
+              <h4 className="text-body font-semibold text-text-primary m-0">
+                Room Management
+              </h4>
+              <p className="text-small text-text-muted mt-1 m-0">
+                Manage hotel rooms, availability, and pricing
+              </p>
             </button>
 
             <button

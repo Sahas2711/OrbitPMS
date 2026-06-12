@@ -14,7 +14,7 @@ import Table from '../components/Table';
 import StatusBadge from '../components/StatusBadge';
 import RoomFormModal from '../components/RoomFormModal';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { getRooms, createRoom, updateRoom, deleteRoom, updateRoomStatus } from '../services/api';
+import { getRooms, createRoom, updateRoom, deleteRoom } from '../services/api';
 
 const ROOM_TYPES = [
   { value: '', label: 'All Types' },
@@ -30,13 +30,6 @@ const STATUS_FILTERS = [
   { value: 'maintenance', label: 'Maintenance' },
 ];
 
-// Valid status transitions for the quick-change dropdown
-const VALID_NEXT_STATUS = {
-  available: ['occupied', 'maintenance'],
-  occupied: ['available'],
-  maintenance: ['available'],
-};
-
 export default function RoomManagement() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,16 +37,13 @@ export default function RoomManagement() {
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
 
-  // Form modal state
+  // Modal state
   const [formOpen, setFormOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState(null);
 
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
-
-  // Status change tracking
-  const [statusChanging, setStatusChanging] = useState({});
 
   // ── Fetch rooms ──────────────────────────────────────────────
 
@@ -76,7 +66,7 @@ export default function RoomManagement() {
     fetchRooms();
   }, [fetchRooms]);
 
-  // ── Filtered rooms ───────────────────────────────────────────
+  // ── Filtered rooms (client-side search) ─────────────────────
 
   const filteredRooms = rooms.filter((room) => {
     if (!search) return true;
@@ -88,7 +78,7 @@ export default function RoomManagement() {
     );
   });
 
-  // ── CRUD handlers ────────────────────────────────────────────
+  // ── Form handlers ────────────────────────────────────────────
 
   const openCreateForm = () => {
     setEditingRoom(null);
@@ -108,7 +98,9 @@ export default function RoomManagement() {
   const handleSave = async (payload) => {
     if (editingRoom) {
       const updated = await updateRoom(editingRoom.id, payload);
-      setRooms((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      setRooms((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r))
+      );
       toast.success('Room updated successfully');
     } else {
       const created = await createRoom(payload);
@@ -118,11 +110,16 @@ export default function RoomManagement() {
     closeForm();
   };
 
-  const confirmDelete = (room) => setDeleteTarget(room);
+  // ── Delete handlers ──────────────────────────────────────────
+
+  const confirmDelete = (room) => {
+    setDeleteTarget(room);
+  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
+
     try {
       await deleteRoom(deleteTarget.id);
       setRooms((prev) => prev.filter((r) => r.id !== deleteTarget.id));
@@ -139,26 +136,6 @@ export default function RoomManagement() {
     if (!deleting) setDeleteTarget(null);
   };
 
-  // ── Status Transition Handler ────────────────────────────────
-
-  const handleStatusChange = async (room, newStatus) => {
-    setStatusChanging((prev) => ({ ...prev, [room.id]: true }));
-    try {
-      const updated = await updateRoomStatus(room.id, newStatus);
-      setRooms((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-      toast.success(`Room ${room.room_number} is now ${newStatus}`);
-    } catch (err) {
-      const detail = err.response?.data?.detail;
-      const message =
-        typeof detail === 'object' && detail?.message
-          ? detail.message
-          : 'Failed to change room status';
-      toast.error(message);
-    } finally {
-      setStatusChanging((prev) => ({ ...prev, [room.id]: false }));
-    }
-  };
-
   // ── Table columns ───────────────────────────────────────────
 
   const columns = [
@@ -166,16 +143,18 @@ export default function RoomManagement() {
       header: 'Room',
       accessor: 'room_number',
       sortable: true,
-      width: '100px',
+      width: '120px',
       render: (row) => (
-        <span className="font-semibold text-text-primary">{row.room_number}</span>
+        <span className="font-semibold text-text-primary">
+          {row.room_number}
+        </span>
       ),
     },
     {
       header: 'Type',
       accessor: 'room_type',
       sortable: true,
-      width: '100px',
+      width: '120px',
       render: (row) => (
         <span className="capitalize text-text-secondary">{row.room_type}</span>
       ),
@@ -184,7 +163,7 @@ export default function RoomManagement() {
       header: 'Price / Night',
       accessor: 'price_per_night',
       sortable: true,
-      width: '120px',
+      width: '140px',
       render: (row) => (
         <span className="font-medium text-text-primary">
           ${parseFloat(row.price_per_night).toFixed(2)}
@@ -195,44 +174,8 @@ export default function RoomManagement() {
       header: 'Status',
       accessor: 'status',
       sortable: true,
-      width: '160px',
-      render: (row) => (
-        <div className="flex items-center gap-2">
-          <StatusBadge status={row.status} />
-          {/* Quick-status change dropdown */}
-          <div className="relative group">
-            <select
-              value=""
-              onChange={(e) => {
-                if (e.target.value) handleStatusChange(row, e.target.value);
-                e.target.value = ''; // reset select
-              }}
-              disabled={statusChanging[row.id]}
-              className="opacity-0 group-hover:opacity-100 w-0 group-hover:w-auto h-6 px-0 group-hover:px-2 text-caption bg-transparent border border-border rounded outline-none transition-all duration-150 cursor-pointer disabled:opacity-30 absolute right-0 top-1/2 -translate-y-1/2"
-            >
-              <option value="">Change…</option>
-              {(VALID_NEXT_STATUS[row.status] || []).map((s) => (
-                <option key={s} value={s}>
-                  → {s.charAt(0).toUpperCase() + s.slice(1)}
-                </option>
-              ))}
-            </select>
-            {/* Small icon hint on hover */}
-            {!statusChanging[row.id] && (
-              <button
-                onClick={() => {
-                  const next = (VALID_NEXT_STATUS[row.status] || [])[0];
-                  if (next) handleStatusChange(row, next);
-                }}
-                className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-text-primary transition-all text-caption ml-1 shrink-0"
-                title={`Change status`}
-              >
-                ↻
-              </button>
-            )}
-          </div>
-        </div>
-      ),
+      width: '140px',
+      render: (row) => <StatusBadge status={row.status} />,
     },
     {
       header: 'Description',
@@ -248,18 +191,24 @@ export default function RoomManagement() {
       header: 'Actions',
       accessor: 'actions',
       sortable: false,
-      width: '90px',
+      width: '100px',
       render: (row) => (
         <div className="flex items-center gap-1">
           <button
-            onClick={(e) => { e.stopPropagation(); openEditForm(row); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              openEditForm(row);
+            }}
             className="p-1.5 rounded-md text-text-muted hover:text-brand hover:bg-brand-light transition-all"
             title="Edit room"
           >
             <HiOutlinePencilSquare className="w-4 h-4" />
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); confirmDelete(row); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              confirmDelete(row);
+            }}
             className="p-1.5 rounded-md text-text-muted hover:text-alert-error hover:bg-red-50 transition-all"
             title="Delete room"
           >
@@ -274,6 +223,7 @@ export default function RoomManagement() {
 
   return (
     <div className="min-h-svh bg-bg-page">
+      {/* Top Bar */}
       <header className="bg-primary-900 text-white px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <HiOutlineBuildingOffice2 className="w-6 h-6 text-brand" />
@@ -281,11 +231,17 @@ export default function RoomManagement() {
         </div>
       </header>
 
+      {/* Main Content */}
       <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-section-title font-bold text-text-primary m-0">Room Management</h2>
-            <p className="text-body text-text-secondary mt-1">Manage hotel rooms, availability, and pricing</p>
+            <h2 className="text-section-title font-bold text-text-primary m-0">
+              Room Management
+            </h2>
+            <p className="text-body text-text-secondary mt-1">
+              Manage hotel rooms, availability, and pricing
+            </p>
           </div>
           <Button onClick={openCreateForm}>
             <HiOutlinePlus className="w-5 h-5" />
@@ -293,8 +249,9 @@ export default function RoomManagement() {
           </Button>
         </div>
 
-        {/* Filters */}
+        {/* Filters Bar */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
+          {/* Search */}
           <div className="relative flex-1">
             <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted pointer-events-none" />
             <input
@@ -306,6 +263,7 @@ export default function RoomManagement() {
             />
           </div>
 
+          {/* Status Filter */}
           <div className="relative">
             <HiOutlineFunnel className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
             <select
@@ -314,11 +272,14 @@ export default function RoomManagement() {
               className="h-[44px] pl-9 pr-8 py-2.5 text-body bg-bg-card border border-border rounded-input outline-none transition-all duration-150 focus:border-brand focus:ring-2 focus:ring-brand/20 appearance-none cursor-pointer min-w-[160px]"
             >
               {STATUS_FILTERS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
               ))}
             </select>
           </div>
 
+          {/* Type Filter */}
           <div className="relative">
             <select
               value={typeFilter}
@@ -326,16 +287,22 @@ export default function RoomManagement() {
               className="h-[44px] pl-4 pr-8 py-2.5 text-body bg-bg-card border border-border rounded-input outline-none transition-all duration-150 focus:border-brand focus:ring-2 focus:ring-brand/20 appearance-none cursor-pointer min-w-[140px]"
             >
               {ROOM_TYPES.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
               ))}
             </select>
           </div>
         </div>
 
+        {/* Room Count */}
         <p className="text-small text-text-muted mb-3">
-          {loading ? 'Loading rooms...' : `${filteredRooms.length} room${filteredRooms.length !== 1 ? 's' : ''} found`}
+          {loading
+            ? 'Loading rooms...'
+            : `${filteredRooms.length} room${filteredRooms.length !== 1 ? 's' : ''} found`}
         </p>
 
+        {/* Room Table */}
         <Table
           columns={columns}
           data={filteredRooms}
@@ -350,10 +317,15 @@ export default function RoomManagement() {
         />
       </main>
 
-      {/* Create/Edit Modal */}
-      <RoomFormModal open={formOpen} onClose={closeForm} onSave={handleSave} room={editingRoom} />
+      {/* ── Create/Edit Room Modal ──────────────────────────── */}
+      <RoomFormModal
+        open={formOpen}
+        onClose={closeForm}
+        onSave={handleSave}
+        room={editingRoom}
+      />
 
-      {/* Delete Confirmation */}
+      {/* ── Delete Confirmation Dialog ──────────────────────── */}
       <ConfirmDialog
         open={!!deleteTarget}
         onConfirm={handleDelete}
