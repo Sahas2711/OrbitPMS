@@ -167,10 +167,19 @@ function App() {
               }
             />
 
-            {/* Default redirect */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </Suspense>
+          {/* Availability Calendar */}
+          <Route
+            path="/availability"
+            element={
+              <ProtectedRoute>
+                <AvailabilityCalendar />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Default redirect */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
       </AuthProvider>
     </BrowserRouter>
   );

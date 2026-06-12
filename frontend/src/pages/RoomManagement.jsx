@@ -20,8 +20,7 @@ import Table from '../components/Table';
 import StatusBadge from '../components/StatusBadge';
 import RoomFormModal from '../components/RoomFormModal';
 import ConfirmDialog from '../components/ConfirmDialog';
-import EmptyState from '../components/EmptyState';
-import { getRooms, createRoom, updateRoom, deleteRoom, updateRoomStatus } from '../services/api';
+import { getRooms, createRoom, updateRoom, deleteRoom } from '../services/api';
 
 const ROOM_TYPES = [
   { value: '', label: 'All Types' },
@@ -111,11 +110,16 @@ export default function RoomManagement() {
     closeForm();
   };
 
-  const confirmDelete = (room) => setDeleteTarget(room);
+  // ── Delete handlers ──────────────────────────────────────────
+
+  const confirmDelete = (room) => {
+    setDeleteTarget(room);
+  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
+
     try {
       await deleteRoom(deleteTarget.id);
       setRooms((prev) => prev.filter((r) => r.id !== deleteTarget.id));
@@ -176,16 +180,18 @@ export default function RoomManagement() {
       header: 'Room',
       accessor: 'room_number',
       sortable: true,
-      width: '100px',
+      width: '120px',
       render: (row) => (
-        <span className="font-semibold text-text-primary">{row.room_number}</span>
+        <span className="font-semibold text-text-primary">
+          {row.room_number}
+        </span>
       ),
     },
     {
       header: 'Type',
       accessor: 'room_type',
       sortable: true,
-      width: '100px',
+      width: '120px',
       render: (row) => (
         <span className="capitalize text-text-secondary bg-bg-table-header/50 rounded px-2 py-0.5 text-small">{row.room_type}</span>
       ),
@@ -194,7 +200,7 @@ export default function RoomManagement() {
       header: 'Price / Night',
       accessor: 'price_per_night',
       sortable: true,
-      width: '120px',
+      width: '140px',
       render: (row) => (
         <span className="font-semibold text-text-primary font-mono">${parseFloat(row.price_per_night).toFixed(2)}</span>
       ),
@@ -235,7 +241,7 @@ export default function RoomManagement() {
       header: 'Actions',
       accessor: 'actions',
       sortable: false,
-      width: '90px',
+      width: '100px',
       render: (row) => (
         <div className="flex items-center gap-1">
           <button
@@ -246,7 +252,10 @@ export default function RoomManagement() {
             <HiOutlinePencilSquare className="w-4 h-4" />
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); confirmDelete(row); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              confirmDelete(row);
+            }}
             className="p-1.5 rounded-md text-text-muted hover:text-alert-error hover:bg-red-50 transition-all"
             title="Delete"
           >
@@ -293,11 +302,14 @@ export default function RoomManagement() {
               className="h-[40px] pl-8 pr-7 py-2 text-small bg-bg-card border border-border rounded-input outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 appearance-none cursor-pointer min-w-[140px]"
             >
               {STATUS_FILTERS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
               ))}
             </select>
           </div>
 
+          {/* Type Filter */}
           <div className="relative">
             <select
               value={typeFilter}
@@ -305,7 +317,9 @@ export default function RoomManagement() {
               className="h-[40px] pl-3 pr-7 py-2 text-small bg-bg-card border border-border rounded-input outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 appearance-none cursor-pointer min-w-[120px]"
             >
               {ROOM_TYPES.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
               ))}
             </select>
           </div>
