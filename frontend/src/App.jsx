@@ -14,14 +14,6 @@ import CheckOut from './pages/CheckOut';
 import InvoiceManagement from './pages/InvoiceManagement';
 import AvailabilityCalendar from './pages/AvailabilityCalendar';
 
-function ProtectedLayout({ children }) {
-  return (
-    <ProtectedRoute>
-      <AppLayout>{children}</AppLayout>
-    </ProtectedRoute>
-  );
-}
-
 function App() {
   return (
     <BrowserRouter>
@@ -110,6 +102,16 @@ function App() {
               <ProtectedLayout>
                 <AvailabilityCalendar />
               </ProtectedLayout>
+            }
+          />
+
+          {/* Availability Calendar */}
+          <Route
+            path="/availability"
+            element={
+              <ProtectedRoute>
+                <AvailabilityCalendar />
+              </ProtectedRoute>
             }
           />
 

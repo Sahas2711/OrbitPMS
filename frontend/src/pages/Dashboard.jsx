@@ -1,23 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LuLoader } from 'react-icons/lu';
-import {
-  HiOutlineBuildingOffice2,
-  HiOutlineCheckCircle,
-  HiOutlineXCircle,
-  HiOutlineCalendarDays,
-  HiOutlineClipboardDocumentList,
-  HiOutlineArrowRightOnRectangle,
-  HiOutlineArrowLeftOnRectangle,
-  HiOutlinePlus,
-  HiOutlineCurrencyDollar,
-  HiOutlineChartBarSquare,
-} from 'react-icons/hi2';
-import { format, parseISO } from 'date-fns';
-import toast from 'react-hot-toast';
-
-import { getRooms, getBookings } from '../services/api';
+import Button from '../components/Button';
+import { HiOutlineBuildingOffice2, HiOutlineArrowRightOnRectangle, HiOutlineSquares2X2, HiOutlineCalendarDays, HiOutlineClipboardDocumentList, HiOutlineArrowLeftOnRectangle, HiOutlineReceiptPercent, HiOutlineCalendar } from 'react-icons/hi2';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -224,6 +209,17 @@ export default function Dashboard() {
               className="text-caption font-medium text-brand hover:text-brand-hover transition-colors"
             >
               View All
+            </button>
+
+            <button
+              onClick={() => navigate('/availability')}
+              className="bg-bg-card rounded-card shadow-card border border-border p-5 text-left transition-all duration-150 hover:shadow-hover hover:-translate-y-0.5 group cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-lg bg-brand-light flex items-center justify-center mb-3 group-hover:bg-brand group-hover:text-white transition-all">
+                <HiOutlineCalendar className="w-5 h-5 text-brand group-hover:text-white transition-colors" />
+              </div>
+              <h4 className="text-body font-semibold text-text-primary m-0">Availability Calendar</h4>
+              <p className="text-small text-text-muted mt-1 m-0">View room occupancy across the month</p>
             </button>
           </div>
           <div className="p-4">
