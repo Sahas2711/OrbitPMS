@@ -16,6 +16,15 @@ from app.core.security import (
     get_password_hash,
     verify_password,
 )
+import uuid
+
+from app.core.config import settings
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    get_password_hash,
+    verify_password,
+)
 from app.repositories.user import UserRepository
 from app.schemas.user import (
     LoginRequest,
@@ -131,4 +140,66 @@ class UserService:
                 token_type="bearer",
                 expires_in=expires_in_seconds,
             ),
+        )
+
+    async def list_users(self) -> list[RegisterResponse]:
+        """Get all users."""
+        users = await self._repo.get_all()
+        return [
+            RegisterResponse(
+                id=u.id,
+                full_name=u.full_name,
+                email=u.email,
+                role=u.role,
+                is_active=u.is_active,
+                created_at=u.created_at,
+            )
+            for u in users
+        ]
+
+    async def toggle_user_status(self, user_id: uuid.UUID, is_active: bool) -> RegisterResponse:
+        """Toggle a user's active status."""
+        user = await self._repo.update_status(user_id, is_active)
+        if user is None:
+            raise ValueError(f"User with id '{user_id}' not found.")
+        return RegisterResponse(
+            id=user.id,
+            full_name=user.full_name,
+            email=user.email,
+            role=user.role,
+            is_active=user.is_active,
+            created_at=user.created_at,
+        )
+
+    async def delete_user(self, user_id: uuid.UUID) -> None:
+        """Delete a user by ID."""
+        deleted = await self._repo.delete(user_id)
+        if not deleted:
+            raise ValueError(f"User with id '{user_id}' not found.")
+
+    async def create_user(
+        self,
+        full_name: str,
+        email: str,
+        password: str,
+        role: str = "staff",
+    ) -> RegisterResponse:
+        """Create a new user (admin only)."""
+        existing = await self._repo.get_by_email(email)
+        if existing is not None:
+            raise ValueError(f"A user with email '{email}' is already registered.")
+        password_hash = get_password_hash(password)
+        user = await self._repo.create(
+            full_name=full_name,
+            email=email,
+            password_hash=password_hash,
+            role=role,
+        )
+        return RegisterResponse(
+            id=user.id,
+            full_name=user.full_name,
+            email=user.email,
+            role=user.role,
+            is_active=user.is_active,
+            created_at=user.created_at,
         )

@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     database_url: str = (
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/orbitpms"
+        "postgresql+asyncpg://neondb_owner:npg_eDgWliq2xX0m@ep-crimson-feather-adcmi4j3-pooler.c-2.us-east-1.aws.neon.tech/neondb"
     )
     debug: bool = False
     secret_key: str = "change-me-in-production"
@@ -35,11 +35,12 @@ class Settings(BaseSettings):
 
     # ── Invoice / PDF storage ───────────────────────────────────────
 
-    invoice_storage_path: str = "storage/invoices"
+    invoice_storage_path: str = "./invoices"
 
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"
 
 
 settings = Settings()

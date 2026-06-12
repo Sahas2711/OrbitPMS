@@ -3,7 +3,7 @@ import axios from 'axios';
 import { getAccessToken, getRefreshToken, setTokens, clearTokens } from './auth';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_API_URL || '',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -235,6 +235,49 @@ export async function getInvoiceByBooking(bookingId) {
 export async function downloadInvoicePdf(invoiceId) {
   const response = await api.get(`/api/v1/invoices/${invoiceId}/pdf`, {
     responseType: 'blob',
+  });
+  return response.data;
+}
+
+// ── User API Functions ───────────────────────────────────────────
+
+export async function getUsers(params = {}) {
+  const query = new URLSearchParams();
+  if (params.skip !== undefined) query.set('skip', params.skip);
+  if (params.limit !== undefined) query.set('limit', params.limit);
+
+  const qs = query.toString();
+  const response = await api.get(`/api/v1/users${qs ? `?${qs}` : ''}`);
+  return response.data;
+}
+
+export async function createUser(data) {
+  const response = await api.post('/api/v1/users', {
+    full_name: data.fullName,
+    email: data.email,
+    password: data.password,
+    role: data.role,
+  });
+  return response.data;
+}
+
+export async function toggleUserStatus(userId, isActive) {
+  const response = await api.patch(`/api/v1/users/${userId}/status?is_active=${isActive}`);
+  return response.data;
+}
+
+export async function deleteUser(userId) {
+  const response = await api.delete(`/api/v1/users/${userId}`);
+  return response.data;
+}
+
+// ── PDF Upload API Function ─────────────────────────────────────
+
+export async function uploadInvoicePdf(invoiceId, pdfBlob, invoiceNumber) {
+  const formData = new FormData();
+  formData.append('file', pdfBlob, `${invoiceNumber}.pdf`);
+  const response = await api.post(`/api/v1/invoices/${invoiceId}/upload-pdf`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
   });
   return response.data;
 }
