@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast';
 
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import AppLayout from './components/layout/AppLayout';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -46,63 +47,61 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* Protected Routes */}
+          {/* Protected Routes with App Shell */}
           <Route
             path="/dashboard"
             element={
-              <ProtectedRoute>
+              <ProtectedLayout>
                 <Dashboard />
-              </ProtectedRoute>
+              </ProtectedLayout>
             }
           />
-
-          {/* Room Management */}
           <Route
             path="/rooms"
             element={
-              <ProtectedRoute>
+              <ProtectedLayout>
                 <RoomManagement />
-              </ProtectedRoute>
+              </ProtectedLayout>
             }
           />
-
-          {/* Booking Management */}
           <Route
             path="/bookings"
             element={
-              <ProtectedRoute>
+              <ProtectedLayout>
                 <BookingManagement />
-              </ProtectedRoute>
+              </ProtectedLayout>
             }
           />
-
-          {/* Pending Arrivals */}
           <Route
             path="/arrivals"
             element={
-              <ProtectedRoute>
+              <ProtectedLayout>
                 <PendingArrivals />
-              </ProtectedRoute>
+              </ProtectedLayout>
             }
           />
-
-          {/* Check Out */}
           <Route
             path="/checkout"
             element={
-              <ProtectedRoute>
+              <ProtectedLayout>
                 <CheckOut />
-              </ProtectedRoute>
+              </ProtectedLayout>
             }
           />
-
-          {/* Invoice Management */}
           <Route
             path="/invoices"
             element={
-              <ProtectedRoute>
+              <ProtectedLayout>
                 <InvoiceManagement />
-              </ProtectedRoute>
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/availability"
+            element={
+              <ProtectedLayout>
+                <AvailabilityCalendar />
+              </ProtectedLayout>
             }
           />
 
