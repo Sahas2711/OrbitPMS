@@ -239,4 +239,13 @@ export async function downloadInvoicePdf(invoiceId) {
   return response.data;
 }
 
+// ── Availability API Functions ──────────────────────────────────
+
+export async function getRoomAvailability(year, month) {
+  const response = await api.get('/api/v1/rooms/availability', {
+    params: { year, month },
+  });
+  return response.data;
+}
+
 export default api;

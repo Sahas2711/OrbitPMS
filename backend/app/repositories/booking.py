@@ -185,6 +185,43 @@ class BookingRepository:
         await self._session.flush()
         return result.scalars().first()
 
+    async def get_active_bookings_in_range(
+        self,
+        date_from: date,
+        date_to: date,
+    ) -> list[Booking]:
+        """Fetch all active bookings overlapping a date range.
+
+        Returns confirmed and checked-in bookings whose stay
+        overlaps with the given range (exclusive on the end date).
+
+        Used by the availability calendar to determine which rooms
+        are occupied on which days.
+
+        Args:
+            date_from: Start of the range (inclusive).
+            date_to: End of the range (exclusive).
+
+        Returns:
+            A list of active Booking instances sorted by room_id
+            then check_in_date.
+        """
+        active_statuses = ["confirmed", "checked_in"]
+
+        filters = [
+            Booking.booking_status.in_(active_statuses),
+            Booking.check_in_date < date_to,
+            Booking.check_out_date > date_from,
+        ]
+
+        query = (
+            select(Booking)
+            .where(and_(*filters))
+            .order_by(Booking.room_id, Booking.check_in_date)
+        )
+        result = await self._session.execute(query)
+        return list(result.scalars().all())
+
     async def delete(self, booking_id: uuid.UUID) -> bool:
         """Delete a booking record.
 

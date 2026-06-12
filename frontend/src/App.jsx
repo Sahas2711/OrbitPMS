@@ -11,6 +11,7 @@ import BookingManagement from './pages/BookingManagement';
 import PendingArrivals from './pages/PendingArrivals';
 import CheckOut from './pages/CheckOut';
 import InvoiceManagement from './pages/InvoiceManagement';
+import AvailabilityCalendar from './pages/AvailabilityCalendar';
 
 function App() {
   return (
@@ -101,6 +102,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <InvoiceManagement />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Availability Calendar */}
+          <Route
+            path="/availability"
+            element={
+              <ProtectedRoute>
+                <AvailabilityCalendar />
               </ProtectedRoute>
             }
           />

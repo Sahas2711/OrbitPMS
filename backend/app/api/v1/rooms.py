@@ -11,9 +11,11 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import get_current_user
+from app.models.user import User
+from app.schemas.availability import MonthAvailabilityResponse
 from app.core.security import require_role
 from app.database.session import get_session
-from app.models.user import User
 from app.schemas.error import ErrorDetail, ErrorResponse
 from app.schemas.room import (
     RoomCreate,
@@ -21,6 +23,7 @@ from app.schemas.room import (
     RoomStatusChange,
     RoomUpdate,
 )
+from app.services.availability import AvailabilityService
 from app.services.room import RoomService
 
 logger = logging.getLogger(__name__)
@@ -31,6 +34,49 @@ router = APIRouter(prefix="/api/v1/rooms", tags=["rooms"])
 # Mutation endpoints require admin or receptionist role
 
 StaffCanMutate = Depends(require_role("admin", "receptionist"))
+
+
+@router.get(
+    "/availability",
+    response_model=MonthAvailabilityResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get monthly room availability",
+    description=(
+        "Retrieve availability data for all rooms across an entire month. "
+        "For each day, returns whether the room is available, booked "
+        "(checked-in or confirmed booking), or under maintenance. "
+        "Includes a summary with total, available, booked, and "
+        "maintenance counts."
+    ),
+    responses={
+        200: {"description": "Availability data returned successfully"},
+        422: {
+            "model": ErrorResponse,
+            "description": "Invalid year/month parameters",
+        },
+    },
+)
+async def get_room_availability(
+    year: int = Query(
+        ...,
+        ge=2020,
+        le=2100,
+        description="Calendar year (e.g. 2026)",
+        examples=[2026],
+    ),
+    month: int = Query(
+        ...,
+        ge=1,
+        le=12,
+        description="Calendar month (1-12)",
+        examples=[7],
+    ),
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> MonthAvailabilityResponse:
+    """Get availability for all rooms for a given month."""
+    service = AvailabilityService(session=db)
+    return await service.get_monthly_availability(year=year, month=month)
 
 
 @router.get(
