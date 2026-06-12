@@ -14,16 +14,17 @@ from decimal import Decimal
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.enums import BookingStatus, RoomStatus
-from app.models.invoice import Invoice
 from app.models.user import User
 from app.repositories.booking import BookingRepository
 from app.repositories.room import RoomRepository
 from app.schemas.booking import BookingCreate, BookingResponse, BookingUpdate
 from app.schemas.invoice import InvoiceResponse
+from app.services.invoice import InvoiceService
 
 # Default tax rate applied to room charges at checkout
-DEFAULT_TAX_RATE = Decimal("0.10")
+DEFAULT_TAX_RATE = Decimal(str(settings.default_tax_rate))
 
 logger = logging.getLogger(__name__)
 
@@ -495,7 +496,7 @@ class BookingService:
                 f"Room associated with booking '{booking_id}' not found."
             )
 
-        # 4. Calculate charges
+        # 4. Calculate nights stayed
         today = date.today()
         check_in = booking.check_in_date
         scheduled_check_out = booking.check_out_date
@@ -508,34 +509,39 @@ class BookingService:
         if nights_stayed <= 0:
             nights_stayed = 1  # Minimum 1 night charge
 
-        room_rate = room.price_per_night
-        subtotal = room_rate * Decimal(str(nights_stayed))
-        tax_amount = (subtotal * DEFAULT_TAX_RATE).quantize(Decimal("0.01"))
-        total = (subtotal + tax_amount).quantize(Decimal("0.01"))
+        # 5. Create invoice via InvoiceService
+        invoice_service = InvoiceService(self._session)
+        invoice_response = await invoice_service.create_invoice(
+            booking_id=booking_id,
+            room_rate=room.price_per_night,
+            nights_stayed=nights_stayed,
+            tax_rate=DEFAULT_TAX_RATE,
+        )
 
-        # 5. Generate a unique invoice number
-        today_str = today.strftime("%Y%m%d")
-        invoice_number = f"INV-{today_str}-{booking_id.hex[:8].upper()}"
-
-        # 6. Atomically create invoice, update booking, release room
+        # 6. Generate PDF invoice (non-critical — failure is logged, not raised)
         try:
-            # Create invoice
-            invoice = Invoice(
-                booking_id=booking_id,
-                invoice_number=invoice_number,
-                subtotal=subtotal,
-                tax_amount=tax_amount,
-                total_amount=total,
+            invoice_with_pdf = await invoice_service.generate_pdf(
+                invoice_id=invoice_response.id,
+                booking=booking,
+                nights_stayed=nights_stayed,
+                room_rate=room.price_per_night,
             )
-            self._session.add(invoice)
-            await self._session.flush()
-            await self._session.refresh(invoice)
+            # Use the updated response with pdf_url if PDF generation succeeded
+            invoice_response = invoice_with_pdf
+        except Exception:
+            logger.warning(
+                "PDF generation failed for invoice %s — checkout proceeds",
+                invoice_response.invoice_number,
+                exc_info=True,
+            )
 
+        # 7. Atomically update booking and release room
+        try:
             # Update booking to checked_out + store the calculated total
             booking = await self._repo.update(
                 booking_id=booking_id,
                 booking_status=BookingStatus.CHECKED_OUT,
-                total_amount=total,
+                total_amount=invoice_response.total_amount,
             )
             assert booking is not None
 
@@ -556,10 +562,10 @@ class BookingService:
                 "room_id": str(booking.room_id),
                 "room_number": booking.room.room_number if booking.room else "?",
                 "nights": str(nights_stayed),
-                "subtotal": str(subtotal),
-                "tax": str(tax_amount),
-                "total": str(total),
-                "invoice": invoice_number,
+                "subtotal": str(invoice_response.subtotal),
+                "tax": str(invoice_response.tax_amount),
+                "total": str(invoice_response.total_amount),
+                "invoice": invoice_response.invoice_number,
             },
             actor=actor,
         )
@@ -569,19 +575,11 @@ class BookingService:
             booking_id,
             booking.guest_name,
             booking.room_id,
-            invoice_number,
-            total,
+            invoice_response.invoice_number,
+            invoice_response.total_amount,
         )
 
-        return InvoiceResponse(
-            id=invoice.id,
-            booking_id=booking_id,
-            invoice_number=invoice_number,
-            subtotal=subtotal,
-            tax_amount=tax_amount,
-            total_amount=total,
-            issued_at=invoice.issued_at,
-        )
+        return invoice_response
 
     # ── Helpers ─────────────────────────────────────────────────
 

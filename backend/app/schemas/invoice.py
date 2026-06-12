@@ -2,7 +2,7 @@
 Invoice schemas for OrbitPMS.
 
 Provides Pydantic models for invoice data returned during
-the guest checkout process.
+the guest checkout process and via the invoice management API.
 """
 
 import uuid
@@ -39,6 +39,10 @@ class InvoiceResponse(BaseModel):
         ...,
         description="Grand total (subtotal + tax)",
     )
+    pdf_url: str | None = Field(
+        default=None,
+        description="URL or file path to the generated PDF invoice",
+    )
     issued_at: datetime = Field(
         ...,
         description="Timestamp when the invoice was issued",
@@ -54,6 +58,7 @@ class InvoiceResponse(BaseModel):
                 "subtotal": 600.00,
                 "tax_amount": 60.00,
                 "total_amount": 660.00,
+                "pdf_url": "/storage/invoices/INV-20260701-00001.pdf",
                 "issued_at": "2026-07-05T10:00:00Z",
             }
         },

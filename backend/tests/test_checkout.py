@@ -115,9 +115,13 @@ class TestCheckOutService:
 
         with patch("app.services.booking.BookingRepository", return_value=self._booking_repo), \
              patch("app.services.booking.RoomRepository", return_value=self._room_repo), \
-             patch("app.services.booking.Invoice") as mock_invoice_cls:
+             patch("app.services.booking.InvoiceService") as mock_invoice_service_cls:
 
-            self._mock_invoice_cls = mock_invoice_cls
+            self._mock_invoice_service_cls = mock_invoice_service_cls
+            self._mock_invoice_service_instance = MagicMock()
+            self._mock_invoice_service_instance.create_invoice = AsyncMock()
+            mock_invoice_service_cls.return_value = self._mock_invoice_service_instance
+
             from app.services.booking import BookingService
             self._service = BookingService(session=self._session)
 
@@ -140,14 +144,23 @@ class TestCheckOutService:
         )
         self._booking_repo.update.return_value = checked_out_booking
 
-        mock_invoice_instance = make_mock_invoice(booking_id=booking_id)
-        self._mock_invoice_cls.return_value = mock_invoice_instance
+        # Mock InvoiceService.create_invoice to return an InvoiceResponse
+        mock_invoice_response = InvoiceResponse(
+            id=uuid.uuid4(),
+            booking_id=booking_id,
+            invoice_number="INV-20260701-00001",
+            subtotal=Decimal("600.00"),
+            tax_amount=Decimal("60.00"),
+            total_amount=Decimal("660.00"),
+            issued_at=datetime.now(timezone.utc),
+        )
+        self._mock_invoice_service_instance.create_invoice.return_value = mock_invoice_response
 
         result = await self._service.check_out(booking_id)
 
         # Verify result is an InvoiceResponse
         assert isinstance(result, InvoiceResponse)
-        assert result.invoice_number == mock_invoice_instance.invoice_number
+        assert result.invoice_number == "INV-20260701-00001"
         assert result.subtotal == Decimal("600.00")
         assert result.tax_amount == Decimal("60.00")
         assert result.total_amount == Decimal("660.00")
@@ -165,14 +178,15 @@ class TestCheckOutService:
             total_amount=Decimal("660.00"),
         )
 
-        # Verify invoice was created
-        self._mock_invoice_cls.assert_called_once()
-        assert self._mock_invoice_cls.call_args[1]["booking_id"] == booking_id
-        assert self._mock_invoice_cls.call_args[1]["subtotal"] == Decimal("600.00")
-        assert self._mock_invoice_cls.call_args[1]["tax_amount"] == Decimal("60.00")
-        assert self._mock_invoice_cls.call_args[1]["total_amount"] == Decimal("660.00")
+        # Verify InvoiceService was called with correct args
+        self._mock_invoice_service_instance.create_invoice.assert_awaited_once_with(
+            booking_id=booking_id,
+            room_rate=Decimal("150.00"),
+            nights_stayed=4,
+            tax_rate=Decimal("0.10"),
+        )
 
-    # ── Charge calculation ───────────────────────────────────
+    # ── Charge calculation (delegated to InvoiceService) ───────
 
     async def test_checkout_charge_calculation(self):
         """Charges should be calculated correctly: subtotal = nights × rate, tax = 10%."""
@@ -189,7 +203,17 @@ class TestCheckOutService:
             price_per_night=Decimal("150.00"),
         )
         self._booking_repo.update.return_value = booking
-        self._mock_invoice_cls.return_value = make_mock_invoice(booking_id=booking_id)
+
+        mock_invoice_response = InvoiceResponse(
+            id=uuid.uuid4(),
+            booking_id=booking_id,
+            invoice_number="INV-20260701-00001",
+            subtotal=Decimal("600.00"),
+            tax_amount=Decimal("60.00"),
+            total_amount=Decimal("660.00"),
+            issued_at=datetime.now(timezone.utc),
+        )
+        self._mock_invoice_service_instance.create_invoice.return_value = mock_invoice_response
 
         result = await self._service.check_out(booking_id)
 
@@ -213,13 +237,22 @@ class TestCheckOutService:
         )
 
         # Today is 2026-07-01 (to keep test stable)
-        # We need to simulate today being 2026-07-01
         with patch("app.services.booking.date") as mock_date:
             mock_date.today.return_value = date(2026, 7, 1)
             mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
 
             self._booking_repo.update.return_value = booking
-            self._mock_invoice_cls.return_value = make_mock_invoice(booking_id=booking_id)
+
+            mock_invoice_response = InvoiceResponse(
+                id=uuid.uuid4(),
+                booking_id=booking_id,
+                invoice_number="INV-20260701-00001",
+                subtotal=Decimal("400.00"),
+                tax_amount=Decimal("40.00"),
+                total_amount=Decimal("440.00"),
+                issued_at=datetime.now(timezone.utc),
+            )
+            self._mock_invoice_service_instance.create_invoice.return_value = mock_invoice_response
 
             result = await self._service.check_out(booking_id)
 
@@ -227,6 +260,14 @@ class TestCheckOutService:
         assert result.subtotal == Decimal("400.00")  # 2 nights × $200
         assert result.tax_amount == Decimal("40.00")  # 10% of $400
         assert result.total_amount == Decimal("440.00")  # $400 + $40
+
+        # Verify InvoiceService was called with the correct nights count
+        self._mock_invoice_service_instance.create_invoice.assert_awaited_once_with(
+            booking_id=booking_id,
+            room_rate=Decimal("200.00"),
+            nights_stayed=2,
+            tax_rate=Decimal("0.10"),
+        )
 
     # ── Error cases ──────────────────────────────────────────
 
@@ -272,8 +313,8 @@ class TestCheckOutService:
         self._booking_repo.get_by_id.return_value = booking
         self._room_repo.get_by_id.return_value = make_mock_room(room_id=booking.room_id)
 
-        # Simulate failure during invoice creation
-        self._session.add.side_effect = RuntimeError("Database connection lost")
+        # Simulate failure during booking update (after invoice creation)
+        self._booking_repo.update.side_effect = RuntimeError("Database connection lost")
 
         with pytest.raises(RuntimeError):
             await self._service.check_out(booking_id)
